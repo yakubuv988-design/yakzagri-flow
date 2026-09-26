@@ -8,6 +8,8 @@ export type { BreadcrumbItem } from "./Breadcrumb";
 export { CurrencyInput } from "./CurrencyInput";
 export { DriverManifestForm } from "./DriverManifestForm";
 export type { DriverManifestData } from "./DriverManifestForm";
+export { LossRatioExplainer } from "./LossRatioExplainer";
+export type { LossRatioExplainerProps } from "./LossRatioExplainer";
 
 export type { StepIndicatorProps, Step } from "./StepIndicator";
 export { RepScoreRing } from "./RepScoreRing";

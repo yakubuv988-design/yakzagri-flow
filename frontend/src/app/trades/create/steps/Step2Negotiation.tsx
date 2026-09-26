@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useTrade } from "../TradeContext";
 import { validateStep2 } from "../validation";
+import { LossRatioExplainer } from "@/components/ui/LossRatioExplainer";
 
 export default function Step2Negotiation() {
   const { data, update, setStep } = useTrade();
@@ -54,6 +55,13 @@ export default function Step2Negotiation() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Loss Ratio Explainer Widget */}
+      <LossRatioExplainer 
+        buyerRatio={data.buyerRatio} 
+        sellerRatio={data.sellerRatio}
+        compact={true}
+      />
+
       {/* Loss ratio */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">

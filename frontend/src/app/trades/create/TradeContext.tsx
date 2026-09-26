@@ -21,6 +21,9 @@ type TradeContextType = {
   setStep: (s: number) => void;
   data: TradeData;
   update: (partial: Partial<TradeData>) => void;
+  saveError: string | null;
+  loadError: string | null;
+  clearDraft: () => void;
 };
 
 const defaults: TradeData = {
@@ -42,6 +45,8 @@ const STORAGE_KEY = "amana:draft-trade";
 
 export function TradeProvider({ children }: { children: React.ReactNode }) {
   const [step, setStep] = useState(1);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [data, setData] = useState<TradeData>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -50,7 +55,10 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(raw);
           return { ...defaults, ...parsed.data } as TradeData;
         }
-      } catch {}
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        setLoadError(`Failed to load draft: ${message}`);
+      }
     }
     return defaults;
   });
@@ -58,8 +66,12 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
   // Persist draft locally — survives refresh/restart, replays via offline queue
   useEffect(() => {
     try {
+      setSaveError(null);
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ data, step, savedAt: new Date().toISOString() }));
-    } catch {}
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save draft";
+      setSaveError(message);
+    }
   }, [data, step]);
 
   // Restore step on mount
@@ -70,14 +82,30 @@ export function TradeProvider({ children }: { children: React.ReactNode }) {
         const parsed = JSON.parse(raw);
         if (parsed.step) setStep(parsed.step);
       }
-    } catch {}
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setLoadError(`Failed to restore step: ${message}`);
+    }
   }, []);
 
   const update = (partial: Partial<TradeData>) =>
     setData((prev) => ({ ...prev, ...partial }));
 
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      setSaveError(null);
+      setLoadError(null);
+      setData(defaults);
+      setStep(1);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to clear draft";
+      setSaveError(message);
+    }
+  };
+
   return (
-    <TradeContext.Provider value={{ step, setStep, data, update }}>
+    <TradeContext.Provider value={{ step, setStep, data, update, saveError, loadError, clearDraft }}>
       {children}
     </TradeContext.Provider>
   );

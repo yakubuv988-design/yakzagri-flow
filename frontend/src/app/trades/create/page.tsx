@@ -1,5 +1,6 @@
 "use client";
 import { TradeProvider, useTrade } from "./TradeContext";
+import { DraftBanner } from "./DraftBanner";
 import Step1Details from "./steps/Step1Details";
 import Step2Negotiation from "./steps/Step2Negotiation";
 import Step3Review from "./steps/Step3Review";
@@ -49,31 +50,38 @@ function StepIndicator() {
 }
 
 function CreateTradeInner() {
-  const { step } = useTrade();
+  const { step, clearDraft } = useTrade();
   return (
-    <div className="min-h-screen bg-bg-primary flex items-start justify-center px-4 py-12">
-      <div className="w-full max-w-lg">
-        <div className="mb-6">
-          <Link href="/" className="text-text-muted text-sm hover:text-text-secondary transition-colors">
-            ← Back
-          </Link>
-        </div>
+    <>
+      <DraftBanner 
+        onDiscard={() => {
+          clearDraft();
+        }}
+      />
+      <div className="min-h-screen bg-bg-primary flex items-start justify-center px-4 py-12 pt-24">
+        <div className="w-full max-w-lg">
+          <div className="mb-6">
+            <Link href="/" className="text-text-muted text-sm hover:text-text-secondary transition-colors">
+              ← Back
+            </Link>
+          </div>
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">Create Trade</h1>
-          <p className="text-text-secondary text-sm mt-1">
-            Lock agricultural commodity value into cNGN escrow via NGN Path Payment
-          </p>
-        </div>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-text-primary">Create Trade</h1>
+            <p className="text-text-secondary text-sm mt-1">
+              Lock agricultural commodity value into cNGN escrow via NGN Path Payment
+            </p>
+          </div>
 
-        <div className="bg-bg-card rounded-xl border border-border-default p-6 shadow-card">
-          <StepIndicator />
-          {step === 1 && <Step1Details />}
-          {step === 2 && <Step2Negotiation />}
-          {step === 3 && <Step3Review />}
+          <div className="bg-bg-card rounded-xl border border-border-default p-6 shadow-card">
+            <StepIndicator />
+            {step === 1 && <Step1Details />}
+            {step === 2 && <Step2Negotiation />}
+            {step === 3 && <Step3Review />}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
