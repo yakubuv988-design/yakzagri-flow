@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { NavLink } from "@/components/ui/Navigation";
 import { Badge } from "@/components/ui/Badge";
+import { NetworkSyncIndicator } from "@/components/ui/NetworkSyncIndicator";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { PREFERENCES_CHANGED_EVENT, readPreferences } from "@/lib/preferences";
@@ -96,6 +97,7 @@ export function AppTopNav({
 
       {/* Right side */}
       <div className="ml-auto flex items-center gap-3">
+        <NetworkSyncIndicator />
         <GlobalSearch />
 
         {/* Admin role indicator */}

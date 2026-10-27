@@ -28,7 +28,7 @@ export {
 export type { ModalProps, ModalContentProps } from "./Modal";
 export { ErrorBoundary } from "./ErrorBoundary";
 export type { ErrorBoundaryProps, FallbackRenderProps } from "./ErrorBoundary";
-export { ErrorBoundaryFallbackPage } from "./ErrorBoundaryFallbackPage";
+export { NetworkSyncIndicator } from "./NetworkSyncIndicator";
 export { ErrorState } from "./ErrorState";
 export type { ErrorStateProps } from "./ErrorState";
 export { StalenessIndicator } from "./StalenessIndicator";
