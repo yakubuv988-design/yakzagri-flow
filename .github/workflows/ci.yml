@@ -61,6 +61,9 @@ jobs:
             exit 1
           fi
 
+      - name: Security baseline guard
+        run: node scripts/check-security-baseline.mjs
+
       - name: Design tokens in sync
         working-directory: frontend
         run: node scripts/design-tokens.mjs --check

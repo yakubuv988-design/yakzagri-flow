@@ -1,0 +1,12 @@
+# Repository Owners for Critical Infrastructure
+# Changes to dependencies, lifecycle scripts, workflows, and security tooling require owner sign-off.
+
+* @yakubuv988-design
+
+package.json @yakubuv988-design
+frontend/package.json @yakubuv988-design
+frontend/pnpm-lock.yaml @yakubuv988-design
+.github/workflows/** @yakubuv988-design
+.github/CODEOWNERS @yakubuv988-design
+scripts/** @yakubuv988-design
+frontend/scripts/** @yakubuv988-design
