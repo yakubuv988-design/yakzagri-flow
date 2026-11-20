@@ -1,5 +1,5 @@
 import { ApiError } from "../api/client";
-import { getErrorInfo, isForbiddenError } from "../errorHandler";
+import { getErrorInfo, isForbiddenError, parseStellarReserveError } from "../errorHandler";
 
 describe("isForbiddenError", () => {
   it("returns true for a plain 403 ApiError with no structured backend code", () => {
@@ -195,5 +195,32 @@ describe("getErrorInfo — Soroban contract error codes (#188)", () => {
     expect(info.title).toBe("Error 500");
     expect(info.message).toBe("Something broke");
     expect(info.type).toBe("error");
+  });
+});
+
+describe("getErrorInfo — Stellar minimum reserve errors (#419)", () => {
+  it("decodes op_underfunded from a Horizon result_codes body", () => {
+    const error = new ApiError(400, "Transaction failed", {
+      extras: { result_codes: { transaction: "tx_failed", operations: ["op_underfunded"] } },
+    });
+
+    const info = getErrorInfo(error);
+
+    expect(info.title).toBe("Insufficient XLM Reserve");
+    expect(info.message).toContain("1.5 XLM");
+    expect(info.message).toContain("faucet");
+    expect(info.type).toBe("error");
+  });
+
+  it("decodes tx_insufficient_balance from an error message", () => {
+    const info = getErrorInfo(new Error("tx_insufficient_balance"));
+
+    expect(info.title).toBe("Insufficient XLM Reserve");
+    expect(info.message).toContain("base reserve");
+  });
+
+  it("returns null for unrelated errors", () => {
+    expect(parseStellarReserveError(new Error("boom"))).toBeNull();
+    expect(parseStellarReserveError(null)).toBeNull();
   });
 });

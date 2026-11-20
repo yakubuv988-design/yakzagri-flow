@@ -243,6 +243,59 @@ export function parseSorobanContractError(
 }
 
 /**
+ * Stellar base reserve guidance, shown when an account cannot cover the
+ * minimum balance (1 XLM base reserve + 0.5 XLM per trustline).
+ */
+export const STELLAR_FUNDING_GUIDE_URL =
+  "https://developers.stellar.org/docs/learn/fundamentals/lumens#minimum-balance";
+export const STELLAR_TESTNET_FAUCET_URL = "https://lab.stellar.org/account/create";
+
+const STELLAR_RESERVE_ERROR_REGEX = /\b(op_underfunded|tx_insufficient_balance)\b/i;
+
+/**
+ * Detect Horizon `op_underfunded` / `tx_insufficient_balance` result codes in an
+ * error message or ApiError data and translate them into actionable advice.
+ */
+export function parseStellarReserveError(
+  error: ApiError | Error | string | null | undefined
+): { code: "op_underfunded" | "tx_insufficient_balance"; message: string } | null {
+  const candidates: string[] = [];
+
+  if (typeof error === "string") {
+    candidates.push(error);
+  } else if (error) {
+    if (error.message) {
+      candidates.push(error.message);
+    }
+    if (error instanceof ApiError && error.data !== null && error.data !== undefined) {
+      try {
+        candidates.push(typeof error.data === "string" ? error.data : JSON.stringify(error.data));
+      } catch {
+        // ignore non-serializable data
+      }
+    }
+  }
+
+  for (const candidate of candidates) {
+    const match = candidate.match(STELLAR_RESERVE_ERROR_REGEX);
+    if (match) {
+      const code = match[1].toLowerCase() as "op_underfunded" | "tx_insufficient_balance";
+      return {
+        code,
+        message:
+          "Your account does not have enough XLM to cover the Stellar minimum reserve. " +
+          "An account needs at least 1.5 XLM (1 XLM base reserve plus 0.5 XLM for each " +
+          "trustline, such as USDC) plus network fees. " +
+          `On testnet, fund your account with the faucet: ${STELLAR_TESTNET_FAUCET_URL}. ` +
+          `On mainnet, send XLM to your address. Learn more: ${STELLAR_FUNDING_GUIDE_URL}`,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
  * HTTP status code to toast type mapping
  */
 const STATUS_CODE_MAP: Record<number, ToastType> = {
@@ -284,6 +337,16 @@ export function getErrorInfo(error: ApiError | Error): {
     return {
       title: "Contract Error",
       message: sorobanError.message,
+      type: "error",
+    };
+  }
+
+  // Handle Stellar base-reserve / underfunded account errors
+  const reserveError = parseStellarReserveError(error);
+  if (reserveError) {
+    return {
+      title: "Insufficient XLM Reserve",
+      message: reserveError.message,
       type: "error",
     };
   }
