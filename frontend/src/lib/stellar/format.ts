@@ -37,3 +37,28 @@ export function formatUsdc(stroops: number | bigint | string): string {
 export function formatXlm(stroops: number | bigint | string): string {
   return `${stroopsToAmount(stroops, 7)} XLM`;
 }
+
+const XLM_MAX_DECIMALS = 7;
+const XLM_MIN_DISPLAY_DECIMALS = 4;
+
+/**
+ * Format a human-readable XLM amount (not stroops) as a fixed-point string.
+ *
+ * Never emits scientific notation (e.g. `0.00001` stays `0.00001`, not `1e-5`).
+ * Rounds to at most 7 decimals (Stellar precision), then trims trailing zeroes
+ * but always keeps at least 4 decimals for a clean display.
+ */
+export function formatXlmAmount(amount: number | string): string {
+  const value = typeof amount === "string" ? Number(amount.replace(/[,\s]/g, "")) : amount;
+  if (!Number.isFinite(value)) return (0).toFixed(XLM_MIN_DISPLAY_DECIMALS);
+
+  const fixed = value.toFixed(XLM_MAX_DECIMALS);
+  const [whole, frac = ""] = fixed.split(".");
+  let trimmed = frac;
+  while (trimmed.length > XLM_MIN_DISPLAY_DECIMALS && trimmed.endsWith("0")) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  const result = `${whole}.${trimmed}`;
+  // Avoid "-0.0000" for values that round to zero.
+  return /^-0\.0+$/.test(result) ? result.slice(1) : result;
+}
