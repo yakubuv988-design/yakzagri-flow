@@ -9,11 +9,23 @@ import { ApiError } from "@/lib/api";
 export type QueuedActionType = "create-trade" | "deposit" | "release" | "dispute" | "manifest";
 
 export const MAX_REPLAY_ATTEMPTS = 5;
-export const BASE_BACKOFF_MS = 50;
+export const BASE_BACKOFF_MS = 1000;
+export const MAX_BACKOFF_MS = 30_000;
+export const BACKOFF_JITTER_RATIO = 0.2;
 
-export function computeReplayBackoffMs(attempt: number, baseMs: number = BASE_BACKOFF_MS): number {
+export function computeReplayBackoffMs(
+  attempt: number,
+  baseMs: number = BASE_BACKOFF_MS,
+  jitterRatio: number = BACKOFF_JITTER_RATIO,
+  random: () => number = Math.random,
+): number {
   const exp = Math.max(0, Math.min(attempt - 1, 6));
-  return baseMs * Math.pow(2, exp);
+  const raw = baseMs * Math.pow(2, exp);
+  const capped = Math.min(raw, MAX_BACKOFF_MS);
+  // Apply ±jitterRatio randomized jitter, then re-cap so the interval never exceeds MAX_BACKOFF_MS.
+  const jitter = (random() * 2 - 1) * jitterRatio;
+  const jittered = capped * (1 + jitter);
+  return Math.max(0, Math.min(Math.round(jittered), MAX_BACKOFF_MS));
 }
 
 function extractTradeScopeKey(action: {
@@ -99,7 +111,7 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
 
       replay: async (executor, options) => {
         const maxAttempts = options?.maxAttempts ?? MAX_REPLAY_ATTEMPTS;
-        const baseBackoffMs = options?.baseBackoffMs ?? 0;
+        const baseBackoffMs = options?.baseBackoffMs ?? BASE_BACKOFF_MS;
         const { queue } = get();
         const succeeded: string[] = [];
         const failed: string[] = [];

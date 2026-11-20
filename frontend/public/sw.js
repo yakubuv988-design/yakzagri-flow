@@ -1,5 +1,8 @@
-const CACHE_NAME = "amana-cache-v1";
-const API_CACHE_NAME = "amana-api-cache-v1";
+const CACHE_VERSION = "v1";
+const CACHE_PREFIX = "amana-cache-";
+const API_CACHE_PREFIX = "amana-api-cache-";
+const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
+const API_CACHE_NAME = `${API_CACHE_PREFIX}${CACHE_VERSION}`;
 const API_CACHE_TTL_MS = 5 * 60 * 1000;
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSET_PATTERN = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|otf|webp|avif)$/;
@@ -26,20 +29,36 @@ if (typeof swScope.addEventListener === "function") {
 
   swScope.addEventListener("activate", (event) => {
     event.waitUntil(
-      caches.keys().then((keys) => {
-        return Promise.all(
-          keys
-            .filter((key) => key !== CACHE_NAME && key !== API_CACHE_NAME)
-            .map((key) => caches.delete(key))
-        );
+      purgeLegacyCaches().then(() => {
+        if (swScope.clients && typeof swScope.clients.claim === "function") {
+          return swScope.clients.claim();
+        }
+        return undefined;
       })
     );
-    if (swScope.clients && typeof swScope.clients.claim === "function") {
-      swScope.clients.claim();
+  });
+
+  swScope.addEventListener("message", (event) => {
+    if (event && event.data && event.data.type === "SKIP_WAITING") {
+      if (typeof swScope.skipWaiting === "function") {
+        swScope.skipWaiting();
+      }
     }
   });
 
   swScope.addEventListener("fetch", handleFetch);
+}
+
+// Delete every cache bucket that does not belong to the current version tag so
+// stale HTML/JS chunks from previous deploys can never be served alongside the
+// new build.
+async function purgeLegacyCaches() {
+  const keys = await caches.keys();
+  await Promise.all(
+    keys
+      .filter((key) => key !== CACHE_NAME && key !== API_CACHE_NAME)
+      .map((key) => caches.delete(key))
+  );
 }
 
 function isNavigationRequest(request) {
@@ -220,6 +239,8 @@ if (typeof module !== "undefined" && module.exports) {
     cacheFirst,
     staleWhileRevalidate,
     networkOnly,
+    purgeLegacyCaches,
+    CACHE_VERSION,
     CACHE_NAME,
     API_CACHE_NAME,
     OFFLINE_URL,

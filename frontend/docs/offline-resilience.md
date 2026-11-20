@@ -25,6 +25,13 @@
 - Same `idempotencyKey` reused on replay — backend `idempotencyMiddleware` (`idempotency:{method}:{path}:{key}` + `SET NX EX 30`) honors reuse: duplicate-send prevented, cache HIT returns prior response with `X-Idempotency-Cache: HIT`. If 409 due to already-processed, executor treats as success and dequeue.
 - Attempts incremented; failed kept for next reconnect; partial sync toast warns.
 
+## Exponential backoff with jitter for replay (issue #431)
+
+- When many devices reconnect at once (e.g. a rural market), unthrottled replay can overwhelm the backend. `offlineQueueStore` therefore spaces retries with exponential backoff plus randomized jitter.
+- Formula: `base = 1000ms * 2^(attempts - 1)` → 1s, 2s, 4s, 8s, …; jitter is ±20% (`base * (1 + (Math.random() * 0.4 - 0.2))`).
+- Cap: the computed interval is clamped to a maximum of **30s** (`Math.min(interval, 30_000)`), so retries never exceed 30s regardless of attempt count.
+- `replay` waits `getBackoffDelay(attempts)` before each retry; the delay is exposed for tests so jitter distribution and retry spacing can be asserted deterministically (mocking `Math.random`).
+
 ## Integration with optimistic store / offline queue precedence
 
 - Precedence: **Offline queue owns mutations while offline**; optimistic store (`tradeStore`) is NOT applied for offline enqueues (no patch). When online, `tradeStore.updateTradeOptimistic` does optimistic patch with snapshot rollback + dedup window + toast correlation. If offline, no optimistic patch — pending banner is source of truth.
@@ -33,7 +40,15 @@
 ## Tests simulating flaky connectivity (offline -> online mid-flow)
 
 - `src/__tests__/offline.queue.test.tsx` — enqueue persists to localStorage, survives simulated refresh, replay reuses same key, pending UX, E2E offline->online simulation green.
+- `src/__tests__/offline.backoff.test.ts` — asserts exponential spacing (1s, 2s, 4s, 8s), ±20% jitter bounds, and the 30s cap.
 - `src/__tests__/tradeStore.optimistic.test.ts` — failure-mid-flight restores prior UI state, triple-click dedup yields single intent.
 - Manual: `Step3Review` with `isOffline=true` enqueues, refresh preserves draft, go online → replay + fetch → trade appears.
 
-Run: `pnpm test -- offline.queue tradeStore.optimistic --verbose`
+Run: `pnpm test -- offline.queue offline.backoff tradeStore.optimistic --verbose`
+
+## Dev-test diagnostic view for IndexedDB queues (issue #433)
+
+- `src/app/dev-test/OfflineCacheFixtures.tsx` renders a live visualizer for the offline IndexedDB cache so offline behavior can be inspected without opening browser DevTools.
+- The view lists every currently stored IndexedDB key with a payload summary (action type, endpoint, method, attempts, and creation time), refreshing on an interval and after each action.
+- Buttons let you inject test mutations into the queue, clear the queue, and simulate network drops (toggling the offline state) to exercise replay and backoff paths.
+- The diagnostic view is gated on `process.env.NODE_ENV !== "production"`; in production builds it renders nothing, so it is never shipped to end users.
