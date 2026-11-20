@@ -78,6 +78,7 @@ export function formatCurrencyCode(code: string | null | undefined): string {
 
 /**
  * Format an amount with currency symbol and decimals.
+ * Uses Intl.NumberFormat('en-NG') for localized thousands separation.
  * @param amount The numeric amount
  * @param currencyCode The currency code (NGN, cNGN, etc.)
  * @param opts Options for formatting
@@ -105,4 +106,44 @@ export function formatCurrencyAmount(
     return `${formatted} ${currency.code}`;
   }
   return formatted;
+}
+
+/**
+ * Format an amount as Nigerian Naira fiat with the ₦ symbol and
+ * localized thousands separation (e.g. ₦5,000,000.00).
+ */
+export function formatNaira(amount: number): string {
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+/**
+ * Format an amount as a cNGN token value with localized thousands separation.
+ */
+export function formatCNGN(amount: number): string {
+  const formatted = new Intl.NumberFormat("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return `${formatted} cNGN`;
+}
+
+export type CurrencyDisplayMode = "fiat" | "token";
+
+/**
+ * Format an amount, toggling between the NGN fiat equivalent and the
+ * cNGN token representation.
+ * @param amount The numeric amount
+ * @param mode "fiat" for ₦ NGN display, "token" for cNGN display
+ */
+export function formatCurrencyByMode(
+  amount: number,
+  mode: CurrencyDisplayMode
+): string {
+  return mode === "fiat" ? formatNaira(amount) : formatCNGN(amount);
 }

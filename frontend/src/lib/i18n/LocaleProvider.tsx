@@ -1,86 +1,65 @@
-"use client";
-
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import {
-  DEFAULT_LOCALE,
-  intlLocale,
-  localeDirection,
-  resolveLocale,
-  setActiveLocale,
-  SUPPORTED_LOCALES,
-  type Locale,
-} from "./config";
-
-const STORAGE_KEY = "amana-locale";
-
-export function syncDocumentLocaleAttributes(locale: Locale): void {
-  if (typeof document === "undefined" || !document.documentElement) return;
-  document.documentElement.lang = intlLocale(locale);
-  document.documentElement.dir = localeDir(locale);
-  document.documentElement.setAttribute("data-locale", locale);
-}
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { IntlProvider } from 'react-intl';
+import { DEFAULT_LOCALE, Locale, messages, isRTL } from './index';
 
 interface LocaleContextValue {
   locale: Locale;
-  dir: "ltr" | "rtl";
   setLocale: (locale: Locale) => void;
+  isRTL: boolean;
 }
 
-const LocaleContext = createContext<LocaleContextValue>({
-  locale: DEFAULT_LOCALE,
-  dir: "ltr",
-  setLocale: () => undefined,
-});
+const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(resolveLocale);
+const STORAGE_KEY = 'app.locale';
 
-  function selectLocale(nextLocale: Locale) {
-    setActiveLocale(nextLocale);
-    syncDocumentLocaleAttributes(nextLocale);
-    setLocaleState(nextLocale);
+function getInitialLocale(): Locale {
+  if (typeof window === 'undefined') {
+    return DEFAULT_LOCALE;
   }
+  const stored = window.localStorage.getItem(STORAGE_KEY) as Locale | null;
+  if (stored && messages[stored]) {
+    return stored;
+  }
+  return DEFAULT_LOCALE;
+}
+
+export function LocaleProvider({ children }: { children: React.ReactNode }) {
+  const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
+
+  const setLocale = (next: Locale) => {
+    setLocaleState(next);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(STORAGE_KEY, next);
+    }
+  };
+
+  const rtl = isRTL(locale);
 
   useEffect(() => {
-    let restoreTimer: number | undefined;
-    try {
-      const storedLocale = window.localStorage.getItem(STORAGE_KEY);
-      if (storedLocale && SUPPORTED_LOCALES.includes(storedLocale as Locale)) {
-        restoreTimer = window.setTimeout(() => {
-          const next = storedLocale as Locale;
-          setActiveLocale(next);
-          syncDocumentLocaleAttributes(next);
-          setLocaleState(next);
-        }, 0);
-      }
-    } catch {
-      // Storage can be unavailable in restricted browser contexts.
+    if (typeof document !== 'undefined') {
+      document.documentElement.dir = rtl ? 'rtl' : 'ltr';
+      document.documentElement.lang = locale;
     }
+  }, [locale, rtl]);
 
-    return () => {
-      if (restoreTimer !== undefined) window.clearTimeout(restoreTimer);
-    };
-  }, []);
-
-  useEffect(() => {
-    setActiveLocale(locale);
-    const lang = intlLocale(locale);
-    document.documentElement.lang = lang;
-    document.documentElement.dir = localeDirection(locale);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, locale);
-    } catch {
-      // Keep the selection active for this session when storage is unavailable.
-    }
-  }, [locale]);
+  const value = useMemo<LocaleContextValue>(
+    () => ({ locale, setLocale, isRTL: rtl }),
+    [locale, rtl],
+  );
 
   return (
-    <LocaleContext.Provider value={{ locale, dir: localeDir(locale), setLocale: selectLocale }}>
-      {children}
+    <LocaleContext.Provider value={value}>
+      <IntlProvider locale={locale} messages={messages[locale]} defaultLocale={DEFAULT_LOCALE}>
+        {children}
+      </IntlProvider>
     </LocaleContext.Provider>
   );
 }
 
 export function useLocale(): LocaleContextValue {
-  return useContext(LocaleContext);
+  const ctx = useContext(LocaleContext);
+  if (!ctx) {
+    throw new Error('useLocale must be used within a LocaleProvider');
+  }
+  return ctx;
 }

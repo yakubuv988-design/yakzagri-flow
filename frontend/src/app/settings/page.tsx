@@ -20,6 +20,17 @@ interface ValidationErrors {
   [key: string]: string;
 }
 
+// Native language names for the language switcher. Keys match the Locale type.
+const LANGUAGE_OPTIONS: { value: Locale; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "ha", label: "Harshen Hausa" },
+  { value: "yo", label: "Èdè Yorùbá" },
+  { value: "ig", label: "Asụsụ Igbo" },
+];
+
+const LOCALE_COOKIE = "locale";
+const LOCALE_STORAGE_KEY = "locale";
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SectionCard({
@@ -255,6 +266,21 @@ export default function SettingsPage() {
     setTimeout(() => setSaveSuccess(false), 2500);
   }
 
+  function handleLanguageChange(next: string) {
+    const nextLocale = next as Locale;
+    // Apply instantly via the locale provider (no full page reload).
+    setLocale(nextLocale);
+    // Persist to both cookie and localStorage so the choice survives reloads.
+    if (typeof document !== "undefined") {
+      document.cookie = `${LOCALE_COOKIE}=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
+    }
+    try {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
+    } catch {
+      // Ignore storage failures (e.g. private mode / quota).
+    }
+  }
+
   const walletStatus = isLoading
     ? "Checking…"
     : isAuthenticated
@@ -267,356 +293,153 @@ export default function SettingsPage() {
 
   return (
     <section className="min-h-full bg-bg-primary px-6 py-8 lg:px-10">
-      <div className="max-w-3xl mx-auto space-y-8">
-        {/* Page header */}
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{translateCopy("ui.settings_c7f73bb")}</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            {translateCopy("ui.manage_your_wallet_notifications_3ed9a7d")}
+      <div className="mx-auto max-w-3xl space-y-6">
+        <header className="space-y-1">
+          <h1 className="text-2xl font-semibold text-text-primary">
+            {t("settings.title", locale)}
+          </h1>
+          <p className="text-sm text-text-secondary">
+            {t("settings.subtitle", locale)}
           </p>
-        </div>
+        </header>
 
         <SectionCard
-          title={t("common.language")}
-          description={t("common.languageDescription")}
+          title="Language"
+          description="Choose the language used across the app."
         >
-          <select
-            aria-label={t("common.language")}
+          <SelectField
+            label="Language"
+            description="Applies instantly and is saved to this device."
             value={locale}
-            onChange={(event) => setLocale(event.target.value as Locale)}
-            className="w-full sm:w-64 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-border-focus"
-          >
-            <option value="en-NG">{t("common.englishNigeria")}</option>
-            <option value="en-US">{t("common.englishUnitedStates")}</option>
-            <option value="ha-NG">{t("common.hausa")}</option>
-            <option value="yo-NG">{t("common.yoruba")}</option>
-            <option value="ig-NG">{t("common.igbo")}</option>
-            {locale === "pseudo" && <option value="pseudo">{translateCopy("ui.pseudo_testing_90b1ccd")}</option>}
-          </select>
+            onChange={handleLanguageChange}
+            options={LANGUAGE_OPTIONS}
+          />
         </SectionCard>
 
-        {/* ── Wallet & Identity ── */}
         <SectionCard
-          title={translateCopy("ui.wallet_identity_4efb32d")}
-          description="Your Stellar wallet is your identity on Amana."
+          title="Appearance"
+          description="Customize how the app looks."
         >
-          <div className="rounded-xl border border-border-default bg-bg-elevated px-4 py-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-widest text-text-muted">
-                {translateCopy("ui.wallet_address_d6607aa")}
-              </span>
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  isAuthenticated
-                    ? "bg-emerald-muted text-emerald"
-                    : isWalletConnected
-                      ? "bg-gold-muted text-gold"
-                      : "bg-bg-elevated text-text-muted border border-border-default"
-                }`}
-              >
-                {isAuthenticated
-                  ? "Authenticated"
-                  : isWalletConnected
-                    ? "Connected"
-                    : "Disconnected"}
-              </span>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-text-primary">Theme</p>
+              <p className="text-xs text-text-secondary mt-0.5">
+                Switch between light and dark mode.
+              </p>
             </div>
-
-            {address ? (
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-sm text-text-primary font-mono break-all">
-                  {address}
-                </code>
-                <button
-                  type="button"
-                  onClick={handleCopyAddress}
-                  title={translateCopy("ui.copy_address_4eaae53")}
-                  className="shrink-0 p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
-                >
-                  {copied ? (
-                    <svg
-                      className="w-4 h-4 text-emerald"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    >
-                      <path d="M2 8l4 4 8-8" />
-                    </svg>
-                  ) : (
-                    <svg
-                      className="w-4 h-4"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    >
-                      <rect x="5" y="5" width="9" height="9" rx="1" />
-                      <path d="M11 5V3a1 1 0 00-1-1H3a1 1 0 00-1 1v7a1 1 0 001 1h2" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            ) : (
-              <p className="text-sm text-text-muted italic">{walletStatus}</p>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            {!isWalletConnected && (
-              <button
-                type="button"
-                onClick={connectWallet}
-                disabled={isLoading}
-                className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-text-inverse hover:bg-gold-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isLoading ? "Connecting…" : "Connect Freighter"}
-              </button>
-            )}
-            {isWalletConnected && !isAuthenticated && (
-              <button
-                type="button"
-                onClick={authenticate}
-                disabled={isLoading}
-                className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-text-inverse hover:bg-gold-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isLoading ? "Signing…" : "Sign In"}
-              </button>
-            )}
-            {isAuthenticated && (
-              <button
-                type="button"
-                onClick={logout}
-                className="rounded-lg border border-status-danger/40 text-status-danger px-4 py-2 text-sm font-semibold hover:bg-status-danger/10 transition-colors"
-              >
-                {translateCopy("ui.sign_out_61fd08f")}
-              </button>
-            )}
+            <ThemeToggle />
           </div>
         </SectionCard>
 
-        {/* ── Appearance ── */}
         <SectionCard
-          title={translateCopy("ui.appearance_41def7a")}
-          description="Switch between light, dark, or system-preference theme."
+          title="Notifications"
+          description="Manage how you receive updates."
         >
-          <ThemeToggle />
-          <p className="text-xs text-text-muted mt-2">
-            {translateCopy("ui.your_preference_is_saved_locally_5120f9e")}
-          </p>
+          <Toggle
+            checked={notifications.email}
+            onChange={(v) => setNotif("email", v)}
+            label="Email notifications"
+            description="Receive updates about your trades by email."
+          />
+          <Divider />
+          <Toggle
+            checked={notifications.push}
+            onChange={(v) => setNotif("push", v)}
+            label="Push notifications"
+            description="Receive push notifications in your browser."
+          />
         </SectionCard>
 
-        {/* ── Notifications ── */}
         <SectionCard
-          title={translateCopy("ui.notifications_753a22b")}
-          description="Choose which events trigger in-app alerts."
+          title="Preferences"
+          description="Configure network and display preferences."
         >
-          <div className="space-y-4">
-            <Toggle
-              label="Trade updates"
-              description="Status changes on your active trades."
-              checked={notifications.tradeUpdates}
-              onChange={(v) => setNotif("tradeUpdates", v)}
-            />
-            <Divider />
-            <Toggle
-              label="Dispute alerts"
-              description="New disputes or mediator decisions."
-              checked={notifications.disputeAlerts}
-              onChange={(v) => setNotif("disputeAlerts", v)}
-            />
-            <Divider />
-            <Toggle
-              label="Vault activity"
-              description="Deposits, releases, and lock events."
-              checked={notifications.vaultActivity}
-              onChange={(v) => setNotif("vaultActivity", v)}
-            />
-            <Divider />
-            <Toggle
-              label="System announcements"
-              description="Platform updates and maintenance notices."
-              checked={notifications.systemAnnouncements}
-              onChange={(v) => setNotif("systemAnnouncements", v)}
-            />
-          </div>
-        </SectionCard>
-
-        {/* ── Application Preferences ── */}
-        <SectionCard
-          title={translateCopy("ui.application_preferences_41d8dfa")}
-          description="Network, display currency, and session settings."
-        >
-          <div className="space-y-5">
-            <SelectField
-              label="Network"
-              description="The Stellar network your wallet interacts with."
-              value={prefs.network}
-              onChange={(v) => setPref("network", v as AppPreferences["network"])}
-              error={validationErrors.network}
-              options={[
-                { value: "mainnet", label: "Mainnet" },
-                { value: "testnet", label: "Testnet" },
-              ]}
-            />
-            <Divider />
-            <SelectField
-              label="Preferred currency"
-              description="Fiat currency used for value estimates."
-              value={prefs.currency}
-              onChange={(v) => setPref("currency", v as AppPreferences["currency"])}
-              options={[
-                { value: "USD", label: "USD — US Dollar" },
-                { value: "EUR", label: "EUR — Euro" },
-                { value: "GBP", label: "GBP — British Pound" },
-                { value: "NGN", label: "NGN — Nigerian Naira" },
-                { value: "cNGN", label: "cNGN — CNGN stablecoin" },
-              ]}
-            />
-            <Divider />
-            <SelectField
-              label="Auto sign-out"
-              description="Automatically end your session after inactivity."
-              value={prefs.autoSignOut}
-              onChange={(v) =>
-                setPref("autoSignOut", v as AppPreferences["autoSignOut"])
-              }
-              options={[
-                { value: "15", label: "15 minutes" },
-                { value: "30", label: "30 minutes" },
-                { value: "60", label: "1 hour" },
-                { value: "never", label: "Never" },
-              ]}
-            />
-          </div>
-
-          <div className="flex items-center gap-3 pt-1">
+          <SelectField
+            label="Network"
+            value={prefs.network}
+            onChange={(v) => setPref("network", v as AppPreferences["network"])}
+            options={[
+              { value: "testnet", label: "Testnet" },
+              { value: "mainnet", label: "Mainnet" },
+            ]}
+            error={validationErrors.network}
+          />
+          <Divider />
+          <SelectField
+            label="Currency"
+            value={prefs.currency}
+            onChange={(v) => setPref("currency", v as AppPreferences["currency"])}
+            options={[
+              { value: "USD", label: "USD" },
+              { value: "NGN", label: "NGN" },
+            ]}
+            error={validationErrors.currency}
+          />
+          <Divider />
+          <Toggle
+            checked={prefs.autoSignOut}
+            onChange={(v) => setPref("autoSignOut", v)}
+            label="Auto sign-out"
+            description="Automatically sign out after a period of inactivity."
+          />
+          <div className="flex items-center justify-end gap-3 pt-1">
+            {saveSuccess && (
+              <span className="text-xs text-status-success">Saved</span>
+            )}
             <button
               type="button"
               onClick={handleSavePreferences}
-              className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-text-inverse hover:bg-gold-hover transition-colors"
+              className="rounded-lg bg-gold px-4 py-2 text-sm font-medium text-bg-primary hover:opacity-90 transition-opacity"
             >
-              {translateCopy("ui.save_preferences_d8ab74e")}
+              Save preferences
             </button>
-            {saveSuccess && (
-              <span className="text-sm text-emerald flex items-center gap-1.5">
-                <svg
-                  className="w-4 h-4"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                >
-                  <path d="M2 8l4 4 8-8" />
-                </svg>
-                {translateCopy("ui.saved_c0ae8f6")}
-              </span>
-            )}
           </div>
         </SectionCard>
 
-        {/* ── Security ── */}
         <SectionCard
-          title={translateCopy("ui.security_f25ce1b")}
-          description="Information about how your session and keys are protected."
+          title="Wallet"
+          description="Manage your connected wallet."
         >
-          <ul className="space-y-3">
-            {[
-              {
-                icon: (
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M8 1l5 2.2V7c0 3.3-2.3 5.8-5 6.8C3.3 12.8 1 10.3 1 7V3.2L8 1z" />
-                  </svg>
-                ),
-                label: "Non-custodial",
-                detail:
-                  "Amana never holds your private keys. All signing happens in Freighter.",
-              },
-              {
-                icon: (
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <rect x="3" y="7" width="10" height="7" rx="1" />
-                    <path d="M5 7V5a3 3 0 016 0v2" />
-                  </svg>
-                ),
-                label: "Session token",
-                detail: isAuthenticated
-                  ? "Active — stored in sessionStorage, cleared on tab close."
-                  : "No active session.",
-              },
-              {
-                icon: (
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <circle cx="8" cy="8" r="6" />
-                    <path d="M8 5v3l2 2" />
-                  </svg>
-                ),
-                label: "Challenge-response auth",
-                detail:
-                  "Sign-in uses a one-time challenge signed by your wallet — no passwords.",
-              },
-            ].map((item) => (
-              <li
-                key={item.label}
-                className="flex items-start gap-3 rounded-xl border border-border-default bg-bg-elevated px-4 py-3"
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-text-primary">Status</p>
+              <p className="text-xs text-text-secondary mt-0.5">{walletStatus}</p>
+            </div>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={logout}
+                className="rounded-lg border border-border-default px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-elevated transition-colors"
               >
-                <span className="mt-0.5 shrink-0 text-gold">{item.icon}</span>
-                <div>
-                  <p className="text-sm font-medium text-text-primary">
-                    {item.label}
-                  </p>
-                  <p className="text-xs text-text-secondary mt-0.5">
-                    {item.detail}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-
-        {/* ── About ── */}
-        <SectionCard title={translateCopy("ui.about_6b21fb7")}>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            {[
-              { label: "Platform", value: "Amana" },
-              { label: "Version", value: "V4.8.2" },
-              {
-                label: "Network",
-                value:
-                  prefs.network === "mainnet"
-                    ? "Stellar Mainnet"
-                    : "Stellar Testnet",
-              },
-              { label: "Smart contracts", value: "Soroban" },
-              { label: "Storage", value: "IPFS" },
-              { label: "Wallet", value: "Freighter" },
-            ].map((row) => (
-              <div key={row.label}>
-                <dt className="text-text-muted">{row.label}</dt>
-                <dd className="text-text-primary font-medium mt-0.5">
-                  {row.value}
-                </dd>
+                Sign out
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => (isWalletConnected ? authenticate() : connectWallet())}
+                className="rounded-lg bg-gold px-4 py-2 text-sm font-medium text-bg-primary hover:opacity-90 transition-opacity"
+              >
+                {isWalletConnected ? "Sign in" : "Connect wallet"}
+              </button>
+            )}
+          </div>
+          {address && (
+            <>
+              <Divider />
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-sm font-mono text-text-secondary break-all">
+                  {address}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCopyAddress}
+                  className="shrink-0 rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-bg-elevated transition-colors"
+                >
+                  {copied ? "Copied" : "Copy"}
+                </button>
               </div>
-            ))}
-          </dl>
+            </>
+          )}
         </SectionCard>
       </div>
     </section>
