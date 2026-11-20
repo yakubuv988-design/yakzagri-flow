@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api, type ReputationResponse } from "@/lib/api";
+import { summarizeReputation } from "@/lib/api/reputation";
 import { t as translateCopy } from "@/lib/i18n";
 
 export default function UserReputationPage() {
@@ -42,7 +43,7 @@ export default function UserReputationPage() {
       ) : data ? (
         <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[
-            [translateCopy("ui.trust_score_2c7902e"), `${data.trustScore}%`],
+            [translateCopy("ui.trust_score_2c7902e"), (() => { const s = summarizeReputation(data); return s.isNewParticipant ? s.scoreLabel : `${s.trustScore}%`; })()],
             [translateCopy("ui.rep_total_trades"), data.totalTrades],
             [translateCopy("ui.completed"), data.completedTrades],
             [translateCopy("ui.disputed"), data.disputedTrades],

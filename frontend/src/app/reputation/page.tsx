@@ -5,6 +5,7 @@ import { t as translateCopy } from "@/lib/i18n";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { api, ApiError, type ReputationResponse } from "@/lib/api";
+import { summarizeReputation, NEW_PARTICIPANT_DESCRIPTION } from "@/lib/api/reputation";
 import { RepScoreRing } from "@/components/ui/RepScoreRing";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
@@ -188,13 +189,14 @@ export default function ReputationPage() {
     );
   }
 
-  const ringScore = (data.trustScore / 100) * 5;
+  const summary = summarizeReputation(data);
+  const ringScore = summary.ringScore;
 
   const scoreFactors = [
     {
       label: "Settlement Reliability",
       weight: "50%",
-      score: Math.min(100, Math.round(data.successRate)),
+      score: Math.min(100, Math.round(summary.successRate)),
     },
     {
       label: "Dispute Resolution Ratio",
@@ -237,7 +239,7 @@ export default function ReputationPage() {
     },
     {
       title: "Success Rate",
-      value: `${data.successRate}%`,
+      value: summary.isNewParticipant ? "—" : `${summary.successRate}%`,
       icon: <TrendingUp className="w-5 h-5 text-status-info" />,
     },
   ];
@@ -255,8 +257,20 @@ export default function ReputationPage() {
         <div className="bg-bg-elevated rounded-lg border border-border-default p-8 flex flex-col items-center gap-3">
           <RepScoreRing score={ringScore} size="xl" animated />
           <p className="text-sm text-text-secondary mt-2">{translateCopy("ui.trust_score_2c7902e")}</p>
-          <p className="text-3xl font-bold text-text-primary">{data.trustScore}</p>
-          <p className="text-xs text-text-muted">{translateCopy("ui.out_of_100_da0953a")}</p>
+          <p
+            className="text-3xl font-bold text-text-primary"
+            title={summary.tooltip ?? undefined}
+            data-testid="reputation-score-value"
+          >
+            {summary.scoreLabel}
+          </p>
+          {summary.isNewParticipant ? (
+            <p className="text-xs text-text-muted text-center max-w-[16rem]" data-testid="reputation-new-participant">
+              {NEW_PARTICIPANT_DESCRIPTION}. {summary.tooltip}
+            </p>
+          ) : (
+            <p className="text-xs text-text-muted">{translateCopy("ui.out_of_100_da0953a")}</p>
+          )}
         </div>
 
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
