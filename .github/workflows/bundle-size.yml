@@ -1,0 +1,121 @@
+name: Bundle Size Diff
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  bundle-size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          path: pr
+
+      - name: Checkout main baseline
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: base
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build PR bundle
+        working-directory: pr/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build main baseline bundle
+        working-directory: base/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Compare bundle sizes
+        id: compare
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const THRESHOLD_KB = 15;
+
+          function collectSizes(root) {
+            const sizes = {};
+            const dir = path.join(root, 'frontend', '.next', 'static', 'chunks');
+            if (!fs.existsSync(dir)) return sizes;
+            const walk = (d) => {
+              for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+                const full = path.join(d, entry.name);
+                if (entry.isDirectory()) walk(full);
+                else if (entry.name.endsWith('.js')) {
+                  const rel = path.relative(dir, full);
+                  sizes[rel] = fs.statSync(full).size;
+                }
+              }
+            };
+            walk(dir);
+            return sizes;
+          }
+
+          const pr = collectSizes('pr');
+          const base = collectSizes('base');
+          const routes = Array.from(new Set([...Object.keys(pr), ...Object.keys(base)])).sort();
+
+          const kb = (b) => (b / 1024).toFixed(1);
+          const rows = [];
+          let warned = false;
+          for (const route of routes) {
+            const before = base[route] || 0;
+            const after = pr[route] || 0;
+            const diff = after - before;
+            const flag = diff > THRESHOLD_KB * 1024 ? ' ⚠️' : '';
+            if (flag) warned = true;
+            const sign = diff > 0 ? '+' : '';
+            rows.push(`| \`${route}\` | ${kb(before)} KB | ${kb(after)} KB | ${sign}${kb(diff)} KB${flag} |`);
+          }
+
+          const header = '| Route chunk | Base (main) | PR | Diff |\n| --- | --- | --- | --- |';
+          const body = rows.length ? rows.join('\n') : '| _No chunks found_ | - | - | - |';
+          const warning = warned
+            ? `\n\n> ⚠️ One or more route chunks increased by more than ${THRESHOLD_KB}KB.`
+            : '';
+          const summary = `## Bundle Size Diff\n\n${header}\n${body}${warning}`;
+
+          fs.writeFileSync('bundle-size-comment.md', summary);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `warned=${warned}\n`);
+          EOF
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('bundle-size-comment.md', 'utf8');
+            const marker = '<!-- bundle-size-diff -->';
+            const content = `${marker}\n${body}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: content });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: content });
+            }
+
+      - name: Warn on large increases
+        if: steps.compare.outputs.warned == 'true'
+        run: echo "::warning::Bundle size increased by more than 15KB on one or more routes."

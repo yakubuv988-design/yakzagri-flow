@@ -1,0 +1,29 @@
+#!/bin/sh
+# Pre-push hook: run TypeScript typecheck before pushing.
+# Executes `pnpm --filter frontend exec tsc --noEmit` and aborts the push
+# when type errors are detected, surfacing tsc's file:line diagnostics.
+# Bypass with `git push --no-verify` when necessary.
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+FRONTEND_DIR="$REPO_ROOT/frontend"
+
+if [ ! -d "$FRONTEND_DIR" ]; then
+  echo "pre-push: frontend/ directory not found, skipping typecheck." >&2
+  exit 0
+fi
+
+cd "$REPO_ROOT"
+
+echo "pre-push: running tsc --noEmit..." >&2
+
+if ! pnpm --filter frontend exec tsc --noEmit; then
+  echo "" >&2
+  echo "pre-push: TypeScript type errors detected. Push aborted." >&2
+  echo "pre-push: Fix the file:line errors above, or bypass with 'git push --no-verify'." >&2
+  exit 1
+fi
+
+echo "pre-push: typecheck passed." >&2
+exit 0
