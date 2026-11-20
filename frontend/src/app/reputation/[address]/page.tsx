@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api, type ReputationResponse } from "@/lib/api";
 import { t as translateCopy } from "@/lib/i18n";
+import { ShareReputationButton } from "@/components/ShareReputationButton";
 
 export default function UserReputationPage() {
   const params = useParams<{ address: string }>();
@@ -34,6 +35,9 @@ export default function UserReputationPage() {
       <div>
         <h1 className="text-xl font-semibold text-text-primary">{translateCopy("ui.trader_reputation")}</h1>
         <p className="mt-1 break-all font-mono text-sm text-text-secondary">{address}</p>
+        <div className="mt-3">
+          <ShareReputationButton address={address} />
+        </div>
       </div>
       {error ? (
         <p role="alert" className="rounded-lg border border-status-danger/40 px-4 py-3 text-sm text-status-danger">
