@@ -18,11 +18,15 @@ import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
+  preload: true,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+  preload: true,
 });
 
 const manrope = Manrope({
@@ -93,6 +97,13 @@ export default function RootLayout({
   return (
     <html lang="en-NG" dir="ltr" suppressHydrationWarning>
       <head>
+        <link
+          rel="preload"
+          as="font"
+          type="font/woff2"
+          href={geistSans.style.fontFamily ? undefined : undefined}
+          crossOrigin="anonymous"
+        />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body

@@ -15,9 +15,9 @@
  * Response shape:
  *  { flags: Record<FlagName, boolean>, fetchedAt: string }
  *
- * Cache: public, stale-while-revalidate=25s, max-age=5s.
- * This lets the CDN/Next.js cache serve most requests instantly while
- * background-refreshing from the backend every 25 s.
+ * Cache: public, max-age=3600, s-maxage=86400, stale-while-revalidate.
+ * This lets the CDN/Next.js cache serve most requests instantly at the edge
+ * while background-revalidating without blocking user navigation.
  */
 
 import { NextResponse } from 'next/server';
@@ -99,8 +99,8 @@ export async function GET(): Promise<NextResponse> {
     {
       status: 200,
       headers: {
-        // stale-while-revalidate: serve cached immediately, refresh in bg after 25 s
-        'Cache-Control': 'public, max-age=5, stale-while-revalidate=25',
+        // CDN edge caching with background revalidation (non-blocking)
+        'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate',
       },
     },
   );
