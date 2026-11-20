@@ -248,7 +248,21 @@ export interface ReputationEvent {
     | "account_created";
 }
 
+export interface CooperativeAffiliation {
+  /** Cooperative name, e.g. "AFAN" or "RIFAN". */
+  name: string;
+  /** Registration / membership ID issued by the cooperative. */
+  registrationId?: string;
+  verified: boolean;
+  /** Who verified the affiliation (e.g. "AFAN registry"). */
+  verificationSource?: string;
+  /** ISO date of accreditation. */
+  accreditationDate?: string;
+}
+
 export interface ReputationResponse {
+  /** Absent for independent (unaffiliated) producers. */
+  cooperative?: CooperativeAffiliation | null;
   trustScore: number;
   totalTrades: number;
   completedTrades: number;
