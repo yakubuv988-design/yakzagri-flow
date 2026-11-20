@@ -9,6 +9,7 @@
  * 2. Unauthorized root-level executable scripts in frontend/
  * 3. Off-screen whitespace/tab masks (used by attackers to hide payloads from code reviewers)
  * 4. Obfuscated dynamic execution and known dead-drop indicators
+ * 5. Subresource Integrity (SRI) on external CDN <script>/<link> tags
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -152,11 +153,53 @@ function scanFileContent(filePath, fileName) {
   }
 }
 
+// ── 4. Verify Subresource Integrity on external CDN references ──
+const SRI_SCANNABLE_EXTS = /\.(tsx|jsx|html)$/;
+const SRI_HASH_RE = /^sha(384|512)-[A-Za-z0-9+/]+={0,2}$/;
+
+function isExternalUrl(url) {
+  return /^(https?:)?\/\//i.test(url.trim());
+}
+
+function checkSRI(filePath, fileName) {
+  if (!SRI_SCANNABLE_EXTS.test(fileName)) return;
+  const content = readFileSync(filePath, "utf8");
+  const relPath = relative(repoRoot, filePath);
+
+  // Match <script ...> and <link ...> opening tags
+  const tagRe = /<(script|link)\b[^>]*>/gi;
+  let match;
+  while ((match = tagRe.exec(content)) !== null) {
+    const tag = match[0];
+    const srcMatch = tag.match(/\b(?:src|href)\s*=\s*["']([^"']+)["']/i);
+    if (!srcMatch) continue;
+    const url = srcMatch[1];
+    if (!isExternalUrl(url)) continue;
+
+    const integrityMatch = tag.match(/\bintegrity\s*=\s*["']([^"']+)["']/i);
+    if (!integrityMatch) {
+      violations.push(`${relPath}: external resource missing SRI integrity attribute: ${url}`);
+      continue;
+    }
+
+    const hashes = integrityMatch[1].trim().split(/\s+/);
+    const valid = hashes.length > 0 && hashes.every((h) => SRI_HASH_RE.test(h));
+    if (!valid) {
+      violations.push(`${relPath}: external resource has invalid SRI hash (expected sha384/sha512): ${url}`);
+    }
+
+    if (!/\bcrossorigin\s*=\s*["']anonymous["']/i.test(tag)) {
+      violations.push(`${relPath}: external resource missing crossorigin="anonymous": ${url}`);
+    }
+  }
+}
+
 // ── Run checks ──
 try {
   checkPackageJsonScripts();
   checkFrontendRootFiles();
   walkDir(frontendRoot, scanFileContent);
+  walkDir(frontendRoot, checkSRI);
 } catch (err) {
   console.error("Error running security baseline check:", err);
   process.exit(1);
@@ -171,4 +214,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log("✓ Security baseline checks passed (no script tampering, off-screen masks, or unauthorized root scripts).");
+console.log("✓ Security baseline checks passed (no script tampering, off-screen masks, unauthorized root scripts, or missing SRI).");

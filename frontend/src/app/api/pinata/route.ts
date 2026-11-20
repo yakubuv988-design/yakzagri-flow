@@ -1,112 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-/**
- * Server-side proxy for Pinata operations that require the secret key.
- *
- * The Pinata secret must never be exposed to the browser, so any call that
- * needs `PINATA_SECRET` is routed through this handler. The client only ever
- * talks to this route using the safe-to-expose `NEXT_PUBLIC_PINATA_*` config.
- */
+const WINDOW_MS = 60_000;
+const MAX_UPLOADS_PER_WINDOW = 5;
 
-const PINATA_API_URL = 'https://api.pinata.cloud';
+interface Bucket {
+  tokens: number;
+  lastRefill: number;
+}
 
-function getServerConfig() {
-  const apiKey = process.env.PINATA_API_KEY;
-  const secret = process.env.PINATA_SECRET;
+const buckets = new Map<string, Bucket>();
 
-  if (!apiKey || !secret) {
-    return null;
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return request.headers.get('x-real-ip') ?? 'unknown';
+}
+
+function consumeToken(ip: string): { allowed: boolean; retryAfter: number } {
+  const now = Date.now();
+  const bucket = buckets.get(ip) ?? { tokens: MAX_UPLOADS_PER_WINDOW, lastRefill: now };
+
+  const elapsed = now - bucket.lastRefill;
+  if (elapsed > 0) {
+    const refill = (elapsed / WINDOW_MS) * MAX_UPLOADS_PER_WINDOW;
+    bucket.tokens = Math.min(MAX_UPLOADS_PER_WINDOW, bucket.tokens + refill);
+    bucket.lastRefill = now;
   }
 
-  return { apiKey, secret };
+  if (bucket.tokens < 1) {
+    buckets.set(ip, bucket);
+    const msUntilToken = ((1 - bucket.tokens) / MAX_UPLOADS_PER_WINDOW) * WINDOW_MS;
+    return { allowed: false, retryAfter: Math.max(1, Math.ceil(msUntilToken / 1000)) };
+  }
+
+  bucket.tokens -= 1;
+  buckets.set(ip, bucket);
+  return { allowed: true, retryAfter: 0 };
 }
 
 export async function POST(request: NextRequest) {
-  const config = getServerConfig();
+  const ip = getClientIp(request);
+  const { allowed, retryAfter } = consumeToken(ip);
 
-  if (!config) {
+  if (!allowed) {
     return NextResponse.json(
-      { error: 'Pinata server credentials are not configured' },
-      { status: 500 },
+      { error: 'Too many upload requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } },
     );
   }
 
-  let body: { action?: string; payload?: unknown; sha256?: string };
+  const pinataJwt = process.env.PINATA_JWT;
+  if (!pinataJwt) {
+    return NextResponse.json({ error: 'Pinata is not configured.' }, { status: 500 });
+  }
 
+  let formData: FormData;
   try {
-    body = await request.json();
+    formData = await request.formData();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid form data.' }, { status: 400 });
   }
 
-  const { action, payload, sha256 } = body;
-
-  if (action !== 'pinJSONToIPFS') {
-    return NextResponse.json(
-      { error: `Unsupported Pinata action: ${action ?? 'undefined'}` },
-      { status: 400 },
-    );
+  const file = formData.get('file');
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: 'Missing file.' }, { status: 400 });
   }
 
-  if (sha256 !== undefined && !/^[a-f0-9]{64}$/i.test(sha256)) {
-    return NextResponse.json(
-      { error: 'Invalid SHA-256 digest' },
-      { status: 400 },
-    );
+  const upstream = new FormData();
+  upstream.append('file', file, file.name);
+
+  const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${pinataJwt}` },
+    body: upstream,
+  });
+
+  if (!response.ok) {
+    return NextResponse.json({ error: 'Failed to upload to IPFS.' }, { status: 502 });
   }
 
-  // Merge the client-computed digest into the pinataMetadata so it is
-  // persisted alongside the pinned content for tamper verification.
-  const pinataPayload =
-    payload && typeof payload === 'object'
-      ? { ...(payload as Record<string, unknown>) }
-      : {};
-
-  if (sha256) {
-    const existingMetadata =
-      pinataPayload.pinataMetadata &&
-      typeof pinataPayload.pinataMetadata === 'object'
-        ? (pinataPayload.pinataMetadata as Record<string, unknown>)
-        : {};
-
-    const existingKeyValues =
-      existingMetadata.keyvalues &&
-      typeof existingMetadata.keyvalues === 'object'
-        ? (existingMetadata.keyvalues as Record<string, unknown>)
-        : {};
-
-    pinataPayload.pinataMetadata = {
-      ...existingMetadata,
-      keyvalues: {
-        ...existingKeyValues,
-        sha256,
-      },
-    };
-  }
-
-  try {
-    const response = await fetch(`${PINATA_API_URL}/pinning/pinJSONToIPFS`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        pinata_api_key: config.apiKey,
-        pinata_secret_api_key: config.secret,
-      },
-      body: JSON.stringify(pinataPayload),
-    });
-
-    const data = await response.json();
-
-    return NextResponse.json(data, { status: response.status });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to reach Pinata',
-      },
-      { status: 502 },
-    );
-  }
+  const data = (await response.json()) as { IpfsHash?: string };
+  return NextResponse.json({ ipfsHash: data.IpfsHash });
 }

@@ -1,6 +1,19 @@
 import { z } from "zod";
 import { StrKey } from "@stellar/stellar-sdk";
 
+const SECRET_KEY_MESSAGE = "Never enter your private secret key";
+
+/**
+ * Detects a Stellar secret key (56-char base32 string starting with `S`).
+ * Novice users sometimes paste their secret key into address fields.
+ */
+export const isStellarSecretKey = (value: string): boolean => {
+  const candidate = value.trim();
+  if (!candidate.startsWith("S")) return false;
+  if (candidate.length !== 56) return false;
+  return /^S[A-Z2-7]{55}$/.test(candidate);
+};
+
 const isValidStellarAddress = (value: string): boolean => {
   const address = value.trim();
   if (!address) return false;
@@ -9,16 +22,17 @@ const isValidStellarAddress = (value: string): boolean => {
   return false;
 };
 
+const stellarAddressField = (requiredMessage: string) =>
+  z
+    .string()
+    .min(1, requiredMessage)
+    .refine((value) => !isStellarSecretKey(value), { message: SECRET_KEY_MESSAGE })
+    .refine((value) => isValidStellarAddress(value), { message: "Invalid Stellar address" });
+
 export const TradeSchema = z.object({
   tradeId: z.string().min(1, "Trade ID is required"),
-  buyerAddress: z
-    .string()
-    .min(1, "Buyer address is required")
-    .refine((value) => isValidStellarAddress(value), { message: "Invalid Stellar address" }),
-  sellerAddress: z
-    .string()
-    .min(1, "Seller address is required")
-    .refine((value) => isValidStellarAddress(value), { message: "Invalid Stellar address" }),
+  buyerAddress: stellarAddressField("Buyer address is required"),
+  sellerAddress: stellarAddressField("Seller address is required"),
   amountCngn: z
     .string()
     .regex(/^\d+(\.\d+)?$/, t("validation.amountPositiveNumber")),

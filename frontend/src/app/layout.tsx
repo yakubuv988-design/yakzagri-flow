@@ -31,6 +31,19 @@ const manrope = Manrope({
   variable: "--font-manrope",
 });
 
+/**
+ * External CDN resources loaded by the app. Each entry MUST carry a valid
+ * Subresource Integrity (SRI) hash so a compromised CDN cannot inject code.
+ * Hashes are sha384 and are verified on build by scripts/verify-sri.mjs.
+ */
+const EXTERNAL_RESOURCES = [
+  {
+    href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+    integrity:
+      "sha384-REPLACE_WITH_INTER_CSS_SHA384",
+  },
+] as const;
+
 export const metadata: Metadata = {
   title: "Amana — Secure Agricultural Escrow",
   description: "Blockchain-powered agricultural trade settlement",
@@ -93,6 +106,15 @@ export default function RootLayout({
   return (
     <html lang="en-NG" dir="ltr" suppressHydrationWarning>
       <head>
+        {EXTERNAL_RESOURCES.map((resource) => (
+          <link
+            key={resource.href}
+            rel="stylesheet"
+            href={resource.href}
+            integrity={resource.integrity}
+            crossOrigin="anonymous"
+          />
+        ))}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body
