@@ -78,6 +78,24 @@ describe('Wallet Store', () => {
     });
   });
 
+  describe('disconnect persistence', () => {
+    it('should purge persisted wallet data from localStorage', () => {
+      useWalletStore.getState().connect('GC1234...', 'testnet');
+      useWalletStore.getState().setBalances({ XLM: '10' });
+      window.localStorage.setItem('amana_wallet_store', '{"state":{"publicKey":"GC1234..."}}');
+
+      useWalletStore.getState().disconnect();
+
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('amana_wallet_store');
+      expect(window.localStorage.getItem('amana_wallet_store')).toBeNull();
+      const state = useWalletStore.getState();
+      expect(state.publicKey).toBeNull();
+      expect(state.balances).toEqual({});
+      expect(state.network).toBe('public');
+      expect(state.isConnected).toBe(false);
+    });
+  });
+
   describe('setBalances', () => {
     it('should update token balances', () => {
       const store = useWalletStore.getState();

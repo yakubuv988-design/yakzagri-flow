@@ -12,6 +12,7 @@
  *  - Error path: signMessage fails
  */
 
+import { useWalletStore } from "@/stores/walletStore";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   getAddress,
@@ -426,6 +427,28 @@ describe("logout", () => {
     expect(result.current.token).toBeNull();
     expect(sessionStorage.getItem("amana_jwt")).toBeNull();
     expect(deleteCache).toHaveBeenCalledWith("amana-api-cache-v1");
+  });
+
+  it("purges wallet identity and wallet store state on logout", async () => {
+    mockWalletConnected();
+    mockedLogout.mockResolvedValue({ message: "Logged out successfully" });
+    useWalletStore.getState().connect(WALLET_ADDRESS, "testnet");
+    useWalletStore.getState().setBalances({ XLM: "100" });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.address).toBe(WALLET_ADDRESS));
+
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    expect(result.current.address).toBeNull();
+    expect(result.current.shortAddress).toBeNull();
+    expect(result.current.isWalletConnected).toBe(false);
+    const wallet = useWalletStore.getState();
+    expect(wallet.publicKey).toBeNull();
+    expect(wallet.balances).toEqual({});
+    expect(wallet.isConnected).toBe(false);
   });
 
   it("calls the logout API with the current token", async () => {

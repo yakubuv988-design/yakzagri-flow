@@ -180,6 +180,20 @@ async function connectWalletStore(): Promise<void> {
   }
 }
 
+/**
+ * Synchronously purge the cached wallet identity (address, authorization) so
+ * consumers such as the top nav fall back to the "Connect Wallet" state
+ * immediately on disconnect. Also invalidates any in-flight refresh.
+ */
+export function clearFreighterIdentity(): void {
+  beginOperation();
+  emitStoreChange({
+    ...initialState,
+    isLoading: false,
+    isWalletDetected: storeState.isWalletDetected,
+  });
+}
+
 export function __resetFreighterIdentityStoreForTests(): void {
   storeState = initialState;
   hasInitialized = false;

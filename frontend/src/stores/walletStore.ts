@@ -39,6 +39,13 @@ export const useWalletStore = create<WalletState>()(
           isConnected: false,
           isConnecting: false,
         });
+        try {
+          if (typeof window !== 'undefined') {
+            window.localStorage.removeItem('amana_wallet_store');
+          }
+        } catch {
+          // storage unavailable; in-memory state is already purged
+        }
       },
 
       setBalances: (balances: Record<string, string>) => {

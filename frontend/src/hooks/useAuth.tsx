@@ -13,7 +13,8 @@ import {
 } from "@stellar/freighter-api";
 import { api, ApiError } from "@/lib/api";
 import { trackAuthEvent } from "@/lib/analytics";
-import { useFreighterIdentity } from "@/hooks/useFreighterIdentity";
+import { useFreighterIdentity, clearFreighterIdentity } from "@/hooks/useFreighterIdentity";
+import { useWalletStore } from "@/stores/walletStore";
 import { decodeTokenPayload, getTokenExpiryMs, isTokenExpired, isTokenValid } from "@/lib/tokenValidity";
 
 const TOKEN_STORAGE_KEY = "amana_jwt";
@@ -198,6 +199,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [identity.address]);
 
   const logout = useCallback(async () => {
+    // Synchronously purge wallet state so the UI resets immediately.
+    clearFreighterIdentity();
+    useWalletStore.getState().disconnect();
+
     if (state.token) {
       try {
         await api.auth.logout(state.token);
