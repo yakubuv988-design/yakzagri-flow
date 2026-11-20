@@ -93,7 +93,11 @@ function toDate(value: Date | string | number): Date {
   return d;
 }
 
-/** `29 Aug 2026` by default (en-NG day-month-year order). */
+/**
+ * `29 Aug 2026` by default (en-NG day-month-year order). Pass `dateStyle: "short"`
+ * for the numeric form, which follows the active locale's field order — e.g.
+ * `29/08/2026` in Nigeria (en-NG) vs `8/29/2026` in the US (en-US).
+ */
 export function formatDate(
   value: Date | string | number,
   options: { locale?: Locale; dateStyle?: Intl.DateTimeFormatOptions["dateStyle"] } = {},

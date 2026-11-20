@@ -1,7 +1,7 @@
 "use client";
 import { t as translateCopy } from "@/lib/i18n";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTrade } from "../TradeContext";
 import { validateStep2 } from "../validation";
 import { formatNumber } from "@/lib/i18n/format";
@@ -10,11 +10,29 @@ export default function Step2Negotiation() {
   const { data, update, setStep } = useTrade();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [announcement, setAnnouncement] = useState("");
+  const announceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (announceTimer.current) clearTimeout(announceTimer.current);
+    };
+  }, []);
+
+  const scheduleAnnouncement = (buyerRatio: number, sellerRatio: number) => {
+    if (announceTimer.current) clearTimeout(announceTimer.current);
+    announceTimer.current = setTimeout(() => {
+      setAnnouncement(
+        `Buyer absorbs ${buyerRatio} percent, Seller absorbs ${sellerRatio} percent`
+      );
+    }, 500);
+  };
 
   const handleBuyerRatio = (val: number) => {
     const clamped = Math.min(100, Math.max(0, val));
     update({ buyerRatio: clamped, sellerRatio: 100 - clamped });
     setErrors((prev) => ({ ...prev, sum: "", buyerRatio: "", sellerRatio: "" }));
+    scheduleAnnouncement(clamped, 100 - clamped);
   };
 
   const totalValue =
@@ -29,7 +47,6 @@ export default function Step2Negotiation() {
   const sellerPayout = totalValue ? (data.sellerRatio / 100) * totalValue : 0;
 
   const presetRatios = [50, 70, 80, 100];
-=======
 
   const handleBlur = (field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -63,6 +80,11 @@ export default function Step2Negotiation() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Debounced screen reader announcer for slider updates */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </div>
+
       {/* Loss ratio */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
@@ -186,27 +208,25 @@ export default function Step2Negotiation() {
           placeholder={translateCopy("ui.e_g_goods_must_be_bagged_and_sea_f879108")}
           value={data.notes}
           onChange={(e) => update({ notes: e.target.value })}
-          className="bg-bg-input border border-border-default rounded-md px-4 py-3 text-text-primary text-sm resize-none focus:outline-none focus:border-border-focus"
+          className="bg-bg-input border border-border-default rounded-md px-4 py-3 text-text-primary focus:outline-none focus:border-border-focus resize-none"
         />
       </div>
 
-      {/* Info callout */}
-      <div className="rounded-lg bg-emerald-muted border border-emerald/20 px-4 py-3 text-sm text-emerald">
-        {translateCopy("ui.funds_will_be_locked_as_cngn_via_270528e")}
-      </div>
-
+      {/* Navigation */}
       <div className="flex gap-3">
         <button
+          type="button"
           onClick={() => setStep(1)}
-          className="flex-1 h-12 rounded-full border border-border-default text-text-secondary hover:border-border-hover transition-colors"
+          className="flex-1 py-3 rounded-md border border-border-default text-text-secondary font-semibold hover:border-border-hover transition-colors"
         >
-          {translateCopy("common.back")}
+          {translateCopy("ui.back_5a0f4b1")}
         </button>
         <button
+          type="button"
           onClick={handleReview}
-          className="flex-1 h-12 rounded-full bg-gradient-gold-cta text-text-inverse font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 py-3 rounded-md bg-gold text-text-inverse font-semibold hover:bg-gold-hover transition-colors"
         >
-          {translateCopy("ui.review_trade_56119c6")}
+          {translateCopy("ui.review_trade_8c2e1f0")}
         </button>
       </div>
     </div>
