@@ -1,73 +1,114 @@
-/**
- * Focus-trap helpers for modal dialogs.
- *
- * A hand-rolled `role="dialog" aria-modal="true"` overlay does not keep
- * keyboard focus inside itself: Tab from the last control moves into the page
- * behind the overlay. These helpers decide which element should receive focus
- * so a caller can call `preventDefault()` and wrap the focus ring.
- *
- * They are deliberately pure/DOM-only so they can be unit tested and used from
- * any dialog implementation without pulling in a focus-trap dependency.
- */
-
-/** Candidate elements for the tab ring: anything focusable by markup. */
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]';
-
-/**
- * Every element inside `root` that participates in the tab order, in document
- * order. Elements that are disabled, `aria-hidden`, or explicitly removed from
- * the tab order (`tabindex="-1"` — used by combobox options that are tracked
- * with `aria-activedescendant`) are excluded.
- */
-export function getTabbable(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (el) =>
-      !el.hasAttribute("disabled") &&
-      el.getAttribute("aria-hidden") !== "true" &&
-      el.tabIndex >= 0,
-  );
+export interface FocusTrapOptions {
+  /** Element to focus when the trap activates. Defaults to the first focusable element. */
+  initialFocus?: HTMLElement | null;
+  /** Called when Escape is pressed while the trap is active. */
+  onEscape?: () => void;
+  /** Whether to restore focus to the previously focused element on release. Defaults to true. */
+  restoreFocus?: boolean;
 }
 
-export type TrapDirection = "forward" | "backward";
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'area[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'iframe',
+  'object',
+  'embed',
+  '[contenteditable="true"]',
+  '[tabindex]:not([tabindex="-1"])',
+  'video[controls]',
+  'audio[controls]',
+].join(',');
+
+function isVisible(el: HTMLElement): boolean {
+  if (el.hasAttribute('hidden')) return false;
+  if (el.getAttribute('aria-hidden') === 'true') return false;
+  const style = window.getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+}
+
+export function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const nodes = Array.from(
+    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+  );
+  return nodes.filter((el) => !el.hasAttribute('disabled') && isVisible(el));
+}
 
 /**
- * Resolve the element that should receive focus when Tab (`forward`) or
- * Shift+Tab (`backward`) is pressed inside `root`.
- *
- * Returns `null` when the browser default already keeps focus inside the
- * dialog, so callers can simply do:
- *
- * ```ts
- * const target = nextTrapTarget(root, document.activeElement as HTMLElement, "forward");
- * if (target) {
- *   event.preventDefault();
- *   target.focus();
- * }
- * ```
- *
- * When focus has escaped the dialog (or nothing is focused yet) the requested
- * end of the ring is returned, which also pulls focus back in after a click on
- * a non-focusable part of the dialog.
+ * Traps keyboard focus within `container` while active.
+ * Returns a release function that removes listeners and restores prior focus.
  */
-export function nextTrapTarget(
-  root: HTMLElement,
-  active: HTMLElement | null,
-  direction: TrapDirection,
-): HTMLElement | null {
-  const tabbable = getTabbable(root);
-  if (tabbable.length === 0) return null;
+export function trapFocus(
+  container: HTMLElement,
+  options: FocusTrapOptions = {},
+): () => void {
+  const { initialFocus, onEscape, restoreFocus = true } = options;
+  const previouslyFocused = document.activeElement as HTMLElement | null;
 
-  const first = tabbable[0];
-  const last = tabbable[tabbable.length - 1];
+  const focusInitial = () => {
+    const target =
+      initialFocus && container.contains(initialFocus)
+        ? initialFocus
+        : getFocusableElements(container)[0] ?? container;
+    if (target === container && !container.hasAttribute('tabindex')) {
+      container.setAttribute('tabindex', '-1');
+    }
+    target.focus();
+  };
 
-  if (!active || !root.contains(active)) {
-    return direction === "forward" ? first : last;
-  }
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      if (onEscape) {
+        event.stopPropagation();
+        onEscape();
+      }
+      return;
+    }
 
-  if (direction === "forward") {
-    return active === last ? first : null;
-  }
+    if (event.key !== 'Tab') return;
 
-  return active === first ? last : null;
+    const focusable = getFocusableElements(container);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      container.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+
+    if (event.shiftKey) {
+      if (active === first || !container.contains(active)) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else if (active === last || !container.contains(active)) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  const handleFocusIn = (event: FocusEvent) => {
+    const target = event.target as Node | null;
+    if (target && !container.contains(target)) {
+      focusInitial();
+    }
+  };
+
+  document.addEventListener('keydown', handleKeyDown, true);
+  document.addEventListener('focusin', handleFocusIn, true);
+  focusInitial();
+
+  return () => {
+    document.removeEventListener('keydown', handleKeyDown, true);
+    document.removeEventListener('focusin', handleFocusIn, true);
+    if (restoreFocus && previouslyFocused && typeof previouslyFocused.focus === 'function') {
+      previouslyFocused.focus();
+    }
+  };
 }

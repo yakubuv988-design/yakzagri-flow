@@ -40,6 +40,17 @@ const overlayByOpacity: Record<OverlayOpacity, string> = {
   heavy: "bg-black/75",
 };
 
+/**
+ * Tracks the stack of currently-open modal content nodes so that only the
+ * top-most dialog reacts to the Escape key. This prevents a child confirmation
+ * modal from also dismissing its parent dialog.
+ */
+const openModalStack: HTMLElement[] = [];
+
+function isTopMostModal(node: HTMLElement): boolean {
+  return openModalStack[openModalStack.length - 1] === node;
+}
+
 export function Modal({
   open,
   defaultOpen,
@@ -72,8 +83,21 @@ export function ModalContent({
   showCloseButton = true,
   initialFocusRef,
   onOpenAutoFocus,
+  onKeyDown,
   ...props
 }: ModalContentProps) {
+  const contentRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const node = contentRef.current;
+    if (!node) return;
+    openModalStack.push(node);
+    return () => {
+      const index = openModalStack.lastIndexOf(node);
+      if (index !== -1) openModalStack.splice(index, 1);
+    };
+  }, []);
+
   return (
     <ModalPortal>
       <Dialog.Overlay
@@ -84,6 +108,7 @@ export function ModalContent({
         )}
       />
       <Dialog.Content
+        ref={contentRef}
         className={clsx(
           "fixed z-50 bg-card dark:bg-surface-1 border border-border-default dark:border-border-default shadow-modal",
           "transition-all duration-200 ease-out",
@@ -104,10 +129,32 @@ export function ModalContent({
             target.focus();
           }
         }}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          if (event.defaultPrevented) return;
+          if (event.key !== "Escape") return;
+
+          const node = contentRef.current;
+          // Only the top-most modal should handle Escape; nested confirmation
+          // dialogs must not also dismiss their parent dialog.
+          if (!node || !isTopMostModal(node)) return;
+
+          event.preventDefault();
+          event.stopPropagation();
+          // Radix restores focus to the trigger element on close.
+          node.dispatchEvent(
+            new CustomEvent("modal-escape", { bubbles: false }),
+          );
+          const closeButton = node.querySelector<HTMLElement>(
+            "[data-modal-close]",
+          );
+          closeButton?.click();
+        }}
         {...props}
       >
         {showCloseButton ? (
           <Dialog.Close
+            data-modal-close=""
             aria-label={translateCopy("ui.close_dialog_7b29020")}
             className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary dark:text-text-secondary transition-colors hover:bg-elevated dark:hover:bg-surface-2 hover:text-text-primary dark:hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
