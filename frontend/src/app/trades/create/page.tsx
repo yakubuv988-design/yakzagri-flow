@@ -72,7 +72,7 @@ const STEPS = [
   { index: 3, label: "Review" },
 ];
 
-function CreateTradeInner() {
+function CreateTradeInner({ preFilled }: { preFilled: boolean }) {
   const { step, resetTradeWizard } = useTrade();
   const [createdTrade, setCreatedTrade] = useState<{ tradeId: string; transactionHash: string } | null>(null);
 

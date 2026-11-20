@@ -19,7 +19,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   }: ButtonProps,
   ref,
 ) {
-  const baseStyles = "font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-2 disabled:opacity-60 disabled:cursor-not-allowed";
+  const baseStyles = "inline-flex items-center justify-center font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-2 disabled:opacity-60 disabled:cursor-not-allowed";
 
   const variantStyles = {
     primary: "bg-gold text-text-inverse hover:bg-gold-hover",
@@ -29,7 +29,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   const sizeStyles = {
     sm: "px-3 py-1.5 text-sm rounded-md",
     md: "px-4 py-2 text-sm rounded-md",
-    lg: "px-6 py-3 text-sm rounded-lg",
+    lg: "px-6 py-3 text-sm rounded-lg min-h-[44px]",
   };
 
   return (
