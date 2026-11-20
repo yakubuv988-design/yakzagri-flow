@@ -37,3 +37,36 @@ export function formatUsdc(stroops: number | bigint | string): string {
 export function formatXlm(stroops: number | bigint | string): string {
   return `${stroopsToAmount(stroops, 7)} XLM`;
 }
+
+export type StellarNetwork = "testnet" | "public";
+
+/** Security attributes to spread on any `<a>` pointing at an external explorer. */
+export const EXPLORER_LINK_PROPS = {
+  target: "_blank",
+  rel: "noopener noreferrer",
+} as const;
+
+/** Resolve the active network from `NEXT_PUBLIC_STELLAR_NETWORK` (defaults to testnet). */
+export function getActiveStellarNetwork(): StellarNetwork {
+  return process.env.NEXT_PUBLIC_STELLAR_NETWORK === "public" ? "public" : "testnet";
+}
+
+/**
+ * Build a StellarExpert transaction URL for the active (or given) network.
+ * The hash is URL-encoded so untrusted input cannot alter the path.
+ */
+export function getExplorerTxUrl(
+  txHash: string,
+  network: StellarNetwork = getActiveStellarNetwork(),
+): string {
+  return `https://stellar.expert/explorer/${network}/tx/${encodeURIComponent(txHash.trim())}`;
+}
+
+/** Build the Horizon REST URL for a transaction on the active (or given) network. */
+export function getHorizonTxUrl(
+  txHash: string,
+  network: StellarNetwork = getActiveStellarNetwork(),
+): string {
+  const base = network === "public" ? "https://horizon.stellar.org" : "https://horizon-testnet.stellar.org";
+  return `${base}/transactions/${encodeURIComponent(txHash.trim())}`;
+}
