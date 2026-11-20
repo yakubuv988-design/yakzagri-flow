@@ -254,5 +254,7 @@ export interface ReputationResponse {
   completedTrades: number;
   disputedTrades: number;
   successRate: number;
+  /** Verified counterparty endorsements (requires >= 3 settled escrows). */
+  endorsementCount?: number;
   history: ReputationEvent[];
 }
