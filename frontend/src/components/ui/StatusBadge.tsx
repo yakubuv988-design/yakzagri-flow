@@ -4,7 +4,8 @@ import React from "react";
 
 // ─── Shared status → style mapping ────────────────────────────────────────────
 // Single source of truth for status badge styling across /assets, /trades and
-// /dashboard. Uses existing design tokens only (no ad-hoc colors).
+// /dashboard. Uses semantic CSS variable tokens only (no hardcoded hex colors)
+// so badges react to theme customizations and high-contrast overrides.
 
 export type StatusTone =
   | "success"
@@ -20,10 +21,10 @@ export interface StatusStyle {
 }
 
 const TONE_CLASSES: Record<StatusTone, string> = {
-  success: "text-status-success bg-status-success/10 border-status-success/20",
-  warning: "text-status-warning bg-status-warning/10 border-status-warning/20",
-  danger: "text-status-danger bg-status-danger/10 border-status-danger/20",
-  info: "text-gold bg-gold-muted border-gold/20",
+  success: "text-success bg-success-subtle border-success-subtle",
+  warning: "text-warning bg-warning-subtle border-warning-subtle",
+  danger: "text-danger bg-danger-subtle border-danger-subtle",
+  info: "text-info bg-info-subtle border-info-subtle",
   neutral: "text-text-secondary bg-surface-2 border-border-default",
 };
 

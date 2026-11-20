@@ -35,4 +35,14 @@ const nextConfig: NextConfig = {
   },
 };
 
+// CSP nonce support (issue #456): Next.js reads the per-request nonce from the
+// `x-nonce` request header set by middleware and applies it to the inline
+// scripts and font/style tags it emits. Enabling this flag makes Next.js
+// propagate that nonce onto its own emitted tags so they satisfy the
+// `script-src 'nonce-...' 'strict-dynamic'` policy.
+nextConfig.experimental = {
+  ...nextConfig.experimental,
+  nonce: true,
+};
+
 export default withBundleAnalyzer(nextConfig);

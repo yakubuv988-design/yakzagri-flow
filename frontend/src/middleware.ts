@@ -19,6 +19,21 @@ const WALLET_FRAME_ALLOWLIST = [
 ];
 
 /**
+ * Trusted Freighter and Stellar origins permitted to be embedded as frames
+ * for external wallet bridges (issue #457). Kept separate from the broader
+ * `connect-src` allowlist so `frame-src` stays strictly scoped to approved
+ * wallet domains and cannot be widened by connect-only origins.
+ */
+const TRUSTED_WALLET_FRAME_ORIGINS = [
+  "https://freighter.app",
+  "https://*.freighter.app",
+  "https://stellar.org",
+  "https://*.stellar.org",
+  "https://accountviewer.stellar.org",
+  "https://laboratory.stellar.org",
+];
+
+/**
  * IPFS/storage origins used for video proof upload and playback.
  * `gateway.pinata.cloud` serves pinned proof videos; `api.pinata.cloud`
  * receives the upload from VideoUploadCard.
@@ -31,6 +46,24 @@ const IPFS_MEDIA_ORIGINS = [
 ];
 
 const CSP_HEADER = "Content-Security-Policy";
+
+/**
+ * Generate a cryptographically random per-request nonce.
+ *
+ * Uses `crypto.getRandomValues` (Web Crypto, available in the Edge runtime)
+ * to produce 16 random bytes, base64-encoded. This is the value Next.js reads
+ * from the `x-nonce` request header to stamp its inline scripts and font
+ * loader styles with the matching `nonce` attribute.
+ */
+export function generateNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
 
 /**
  * Build the Content-Security-Policy for a given request.
@@ -51,14 +84,14 @@ export function buildCsp(nonce: string): string {
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
     "script-src": ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:"],
-    "style-src": ["'self'", "'unsafe-inline'"],
+    "style-src": ["'self'", `'nonce-${nonce}'`, "'unsafe-inline'"],
     "img-src": ["'self'", "data:", "blob:", "https:"],
     "media-src": ["'self'", "blob:"],
     "font-src": ["'self'", "data:"],
     "connect-src": buildConnectSrc(),
     "frame-src": buildFrameSrc(),
     "object-src": "'none'",
-    "base-uri": "'self'",
+    "base-uri": ["'self'", `'nonce-${nonce}'`],
     "form-action": "'self'",
     "frame-ancestors": "'none'",
     "upgrade-insecure-requests": "",
@@ -96,12 +129,24 @@ export function buildConnectSrc(): string[] {
   return Array.from(sources).join(" ");
 }
 
+/**
+ * Build the `frame-src` directive value.
+ *
+ * Strictly allowlists trusted Freighter and Stellar wallet origins (plus the
+ * WalletConnect bridge origins) so untrusted third-party iframes are blocked
+ * from being embedded. No wildcard `https:` fallback is emitted here.
+ */
 export function buildFrameSrc(): string[] {
   const configuredOrigins = (process.env.WALLET_FRAME_ALLOWLIST ?? "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
-  return ["'self'", ...WALLET_FRAME_ALLOWLIST, ...configuredOrigins].join(" ");
+  return [
+    "'self'",
+    ...TRUSTED_WALLET_FRAME_ORIGINS,
+    ...WALLET_FRAME_ALLOWLIST,
+    ...configuredOrigins,
+  ].join(" ");
 }
 
 /**
@@ -120,7 +165,7 @@ export function applySecurityHeaders(headers: Headers): void {
 }
 
 export function middleware(request: NextRequest) {
-  const nonce = Buffer.from(crypto.randomUUID().replace(/-/g, "")).toString("base64");
+  const nonce = generateNonce();
   const csp = buildCsp(nonce);
   const enforce = process.env.CSP_ENFORCE === "true";
   const headerName = enforce
@@ -128,6 +173,9 @@ export function middleware(request: NextRequest) {
     : "Content-Security-Policy-Report-Only";
 
   const requestHeaders = new Headers(request.headers);
+  // Next.js reads `x-nonce` from the request headers and applies it to the
+  // inline scripts and font loader styles it emits, so every emitted
+  // <script>/<style> tag carries the matching nonce attribute.
   requestHeaders.set("x-nonce", nonce);
 
   const response = NextResponse.next({

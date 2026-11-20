@@ -67,6 +67,14 @@ const features = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
+      {/* ── Skip link ────────────────────────────────────────────────────── */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-green-700 focus:px-4 focus:py-2 focus:font-semibold focus:text-white focus:outline-2 focus:outline-gold focus:outline-offset-2"
+      >
+        {translateCopy("ui.skip_to_main_content")}
+      </a>
+
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-gradient-hero px-6 py-20 md:py-32 lg:px-10">
         {/* Subtle radial glow behind the headline */}
@@ -115,6 +123,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Main content ─────────────────────────────────────────────────── */}
+      <main id="main-content" tabIndex={-1} className="focus:outline-none">
       {/* ── Stats bar ────────────────────────────────────────────────────── */}
       <section
         aria-label={translateCopy("ui.platform_statistics_5260f1a")}
@@ -203,39 +213,22 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* ── CTA ──────────────────────────────────────────────────────────── */}
       <section className="px-6 py-20 lg:px-10">
-        <div className="mx-auto max-w-3xl rounded-2xl border border-gold/20 bg-gradient-hero p-10 text-center shadow-elev-1">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-gold/20 bg-gradient-hero p-10 text-center shadow-elev-2">
           <h2 className="text-2xl font-bold md:text-3xl">
-            {translateCopy("ui.ready_to_settle_your_first_trade_a627297")}
+            {translateCopy("ui.ready_to_trade_with_confide_9a1b2c3")}
           </h2>
-          <p className="mx-auto mt-4 max-w-md text-base text-text-secondary">
-            {translateCopy("ui.connect_your_freighter_wallet_an_d3b64b6")}
+          <p className="mx-auto mt-3 max-w-xl text-base text-text-secondary">
+            {translateCopy("ui.join_buyers_and_sellers_settl_4d5e6f7")}
           </p>
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <LandingCtaButtons />
           </div>
         </div>
       </section>
-
-      {/* ── Footer ───────────────────────────────────────────────────────── */}
-      <footer className="border-t border-border-default px-6 py-8 lg:px-10">
-        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 text-sm text-text-muted sm:flex-row">
-          <span>© {new Date().getFullYear()} {translateCopy("ui.amana_agricultural_escrow_on_ste_5f6d434")}</span>
-          <nav aria-label={translateCopy("ui.footer_navigation_a32d98c")} className="flex gap-6">
-            <Link href="/trades" className="hover:text-text-secondary transition-colors">
-              {translateCopy("ui.trades_597b109")}
-            </Link>
-            <Link href="/vault" className="hover:text-text-secondary transition-colors">
-              {translateCopy("ui.vault_fb46e37")}
-            </Link>
-            <Link href="/dashboard" className="hover:text-text-secondary transition-colors">
-              {translateCopy("ui.dashboard_d87f47b")}
-            </Link>
-          </nav>
-        </div>
-      </footer>
     </div>
   );
 }
