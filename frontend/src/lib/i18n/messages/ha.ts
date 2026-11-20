@@ -50,6 +50,19 @@ const messages = {
     totalTradeValue: "Jimillar darajar ciniki",
     stellarPathPayment: "Hanyar biyan kuɗi ta Stellar",
   },
+  commodities: {
+    sorghum: "Dawa",
+    maize: "Masara",
+    cassava: "Rogo",
+    yam: "Doya",
+    millet: "Gero",
+    cowpea: "Wake",
+  },
+  units: {
+    bags: "Buhu",
+    mudus: "Mudu",
+    tons: "Tan",
+  },
 } as const;
 
 export default messages;

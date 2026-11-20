@@ -50,6 +50,39 @@ const messages = {
     totalTradeValue: "Àpapọ̀ iye òwò",
     stellarPathPayment: "Ọ̀nà ìsanwó Stellar",
   },
+  escrow: {
+    states: {
+      initiated: "Ti bẹrẹ",
+      funded: "Ti san owo",
+      dispatched: "Ti firanṣẹ",
+      delivered: "Ti de",
+    },
+  },
+  negotiation: {
+    title: "Ìjíròrò òwò",
+    prompt: "Ìbáṣepọ̀ ìjíròrò",
+    proposeTerms: "Dábàá àwọn ìlànà",
+    acceptTerms: "Gba àwọn ìlànà",
+    counterOffer: "Ìdáhùn ìdábàá",
+    awaitingResponse: "Ń dúró fún ìdáhùn…",
+    termsAgreed: "A ti gba àwọn ìlànà",
+    lossRatio: "Ìpín ìpàdánù",
+    lossSharing: "Pínpín ìpàdánù",
+    lossSharingSlider: "Ìtẹ̀ ìpín ìpàdánù",
+    buyerShare: "Ìpín olùrajà",
+    sellerShare: "Ìpín olùtajà",
+    riskSharing: "Pínpín ewu",
+  },
+  driver: {
+    manifest: "Ìwé àkójọ ẹrù",
+    manifestTitle: "Ìwé àkójọ ẹrù awakọ̀",
+    driverName: "Orúkọ awakọ̀",
+    vehicleNumber: "Nọ́ńbà ọkọ̀",
+    pickupLocation: "Ibùdó ìgbé",
+    deliveryLocation: "Ibùdó ìfijíṣẹ́",
+    cargoDescription: "Àpèjúwe ẹrù",
+    confirmManifest: "Jẹ́rìísí ìwé àkójọ ẹrù",
+  },
 } as const;
 
 export default messages;
