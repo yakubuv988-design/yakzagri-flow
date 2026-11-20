@@ -9,6 +9,32 @@ const isValidStellarAddress = (value: string): boolean => {
   return false;
 };
 
+/**
+ * Federal Road Safety Corps (FRSC) Nigerian plate number validator.
+ *
+ * Standard private/government plates: 3 letters + 3 digits + 2 letters
+ *   e.g. ABC-123-DE, KJA-456-XY
+ * Commercial plates: 3 letters + 3 digits + 3 letters
+ *   e.g. XAB-123-KJA
+ *
+ * Separators (space or hyphen) are optional and normalized away.
+ */
+export const isValidPlateNumber = (value: string): boolean => {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toUpperCase().replace(/[\s-]/g, "");
+  if (!normalized) return false;
+  return /^[A-Z]{3}\d{3}[A-Z]{2,3}$/.test(normalized);
+};
+
+export const PlateNumberSchema = z
+  .string()
+  .min(1, t("validation.licensePlateMinLength"))
+  .refine((value) => isValidPlateNumber(value), {
+    message: t("validation.invalidPlateNumber"),
+  });
+
+export type PlateNumber = z.infer<typeof PlateNumberSchema>;
+
 export const TradeSchema = z.object({
   tradeId: z.string().min(1, "Trade ID is required"),
   buyerAddress: z
@@ -70,10 +96,7 @@ export const ManifestSchema = z.object({
   driverPhone: z
     .string()
     .regex(/^\+?[0-9\s\-().]{7,20}$/, t("validation.invalidPhoneFormat")),
-  licensePlate: z
-    .string()
-    .min(2, t("validation.licensePlateMinLength"))
-    .max(20, t("validation.licensePlateMaxLength")),
+  licensePlate: PlateNumberSchema,
   vehicleType: z.string().max(50, t("validation.vehicleTypeMaxLength")).optional(),
   notes: z.string().max(500, t("validation.notesMaxLength")).optional(),
 });

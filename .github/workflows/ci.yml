@@ -13,6 +13,7 @@ on:
     paths:
       - ".github/workflows/ci.yml"
       - "frontend/**"
+      - "schemas/events/**"
       - "pnpm-lock.yaml"
   pull_request:
     branches:
@@ -21,6 +22,7 @@ on:
     paths:
       - ".github/workflows/ci.yml"
       - "frontend/**"
+      - "schemas/events/**"
       - "pnpm-lock.yaml"
 
 jobs:
@@ -40,6 +42,7 @@ jobs:
           filters: |
             frontend:
               - 'frontend/**'
+              - 'schemas/events/**'
               - 'frontend/pnpm-lock.yaml'
 
   frontend-quality:
@@ -67,6 +70,9 @@ jobs:
       - name: Design tokens in sync
         working-directory: frontend
         run: node scripts/design-tokens.mjs --check
+
+      - name: Validate event schemas
+        run: node scripts/validate-schemas.mjs
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -271,8 +277,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: playwright-failure-artifacts
-          path: |
-            frontend/playwright-report/
-            frontend/test-results/
-          retention-days: 14
-          if-no-files-found: ignore
+          path: frontend/test-results/
+          retention-days: 7
