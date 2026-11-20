@@ -1,7 +1,7 @@
 "use client";
 import { t as translateCopy } from "@/lib/i18n";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTrade } from "../TradeContext";
 import { validateStep2 } from "../validation";
 import { formatNumber } from "@/lib/i18n/format";
@@ -17,19 +17,26 @@ export default function Step2Negotiation() {
     setErrors((prev) => ({ ...prev, sum: "", buyerRatio: "", sellerRatio: "" }));
   };
 
-  const totalValue =
-    data.quantity && data.pricePerUnit
-      ? parseFloat(data.quantity) * parseFloat(data.pricePerUnit)
-      : 0;
+  const totalValue = useMemo(
+    () =>
+      data.quantity && data.pricePerUnit
+        ? parseFloat(data.quantity) * parseFloat(data.pricePerUnit)
+        : 0,
+    [data.quantity, data.pricePerUnit]
+  );
 
-  const buyerLoss = totalValue ? formatNumber((data.buyerRatio / 100) * totalValue) : "—";
-  const sellerLoss = totalValue ? formatNumber((data.sellerRatio / 100) * totalValue) : "—";
-
-  const buyerRefund = totalValue ? (data.buyerRatio / 100) * totalValue : 0;
-  const sellerPayout = totalValue ? (data.sellerRatio / 100) * totalValue : 0;
+  const { buyerLoss, sellerLoss, buyerRefund, sellerPayout } = useMemo(() => {
+    const buyerShare = (data.buyerRatio / 100) * totalValue;
+    const sellerShare = (data.sellerRatio / 100) * totalValue;
+    return {
+      buyerLoss: totalValue ? formatNumber(buyerShare) : "—",
+      sellerLoss: totalValue ? formatNumber(sellerShare) : "—",
+      buyerRefund: totalValue ? buyerShare : 0,
+      sellerPayout: totalValue ? sellerShare : 0,
+    };
+  }, [data.buyerRatio, data.sellerRatio, totalValue]);
 
   const presetRatios = [50, 70, 80, 100];
-=======
 
   const handleBlur = (field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -186,27 +193,25 @@ export default function Step2Negotiation() {
           placeholder={translateCopy("ui.e_g_goods_must_be_bagged_and_sea_f879108")}
           value={data.notes}
           onChange={(e) => update({ notes: e.target.value })}
-          className="bg-bg-input border border-border-default rounded-md px-4 py-3 text-text-primary text-sm resize-none focus:outline-none focus:border-border-focus"
+          className="bg-bg-input border border-border-default rounded-md px-4 py-3 text-text-primary focus:outline-none focus:border-border-focus resize-none"
         />
       </div>
 
-      {/* Info callout */}
-      <div className="rounded-lg bg-emerald-muted border border-emerald/20 px-4 py-3 text-sm text-emerald">
-        {translateCopy("ui.funds_will_be_locked_as_cngn_via_270528e")}
-      </div>
-
+      {/* Navigation */}
       <div className="flex gap-3">
         <button
+          type="button"
           onClick={() => setStep(1)}
-          className="flex-1 h-12 rounded-full border border-border-default text-text-secondary hover:border-border-hover transition-colors"
+          className="flex-1 py-3 rounded-md border border-border-default text-text-secondary font-semibold hover:border-border-hover transition-colors"
         >
-          {translateCopy("common.back")}
+          {translateCopy("ui.back_5a1e2b7")}
         </button>
         <button
+          type="button"
           onClick={handleReview}
-          className="flex-1 h-12 rounded-full bg-gradient-gold-cta text-text-inverse font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 py-3 rounded-md bg-gold text-text-inverse font-semibold hover:bg-gold-hover transition-colors"
         >
-          {translateCopy("ui.review_trade_56119c6")}
+          {translateCopy("ui.review_9c3f1a2")}
         </button>
       </div>
     </div>

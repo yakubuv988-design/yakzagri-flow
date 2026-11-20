@@ -11,5 +11,13 @@ export const metadata: Metadata = {
 };
 
 export default function AdminAuditLayout({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return (
+    <div
+      data-audit-log-scroll
+      className="h-full overflow-y-auto overscroll-contain"
+      style={{ contain: "strict", willChange: "scroll-position" }}
+    >
+      {children}
+    </div>
+  );
 }

@@ -18,6 +18,14 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["@stellar/stellar-sdk"],
   },
   turbopack: {},
+  // Serve responsive WebP/AVIF variants for commodity badges and network
+  // logos rendered via next/image (issue #468).
+  images: {
+    formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      { protocol: "https", hostname: "**" },
+    ],
+  },
   // Serve the mobile deep-link association files as JSON (issue #261).
   // Apple requires apple-app-site-association to have an application/json
   // content type and no file extension.
