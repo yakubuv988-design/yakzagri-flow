@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { StrKey } from "@stellar/stellar-sdk";
+import DOMPurify from "dompurify";
 
 const isValidStellarAddress = (value: string): boolean => {
   const address = value.trim();
@@ -8,6 +9,41 @@ const isValidStellarAddress = (value: string): boolean => {
   if (address.startsWith("C")) return StrKey.isValidContract(address);
   return false;
 };
+
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  "<": "&lt;",
+  ">": "&gt;",
+  "&": "&amp;",
+  '"': "&quot;",
+};
+
+/**
+ * Escapes HTML special characters so freeform text can be stored and later
+ * rendered without being interpreted as markup.
+ */
+export const escapeHtml = (value: string): string =>
+  value.replace(/[<>&"]/g, (char) => HTML_ESCAPE_MAP[char] ?? char);
+
+/**
+ * Sanitizes freeform user input (e.g. driver notes) to prevent stored XSS:
+ * strips HTML tags and `javascript:` protocols via DOMPurify, then escapes
+ * remaining special characters before storage/rendering.
+ */
+export const sanitizeFreeformText = (value: string): string => {
+  const stripped = DOMPurify.sanitize(value, {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: true,
+  });
+  const withoutProtocols = stripped.replace(/javascript\s*:/gi, "");
+  return escapeHtml(withoutProtocols);
+};
+
+const sanitizedNotes = (max: number, message: string) =>
+  z
+    .string()
+    .max(max, message)
+    .transform((value) => sanitizeFreeformText(value));
 
 export const TradeSchema = z.object({
   tradeId: z.string().min(1, "Trade ID is required"),
@@ -75,7 +111,7 @@ export const ManifestSchema = z.object({
     .min(2, t("validation.licensePlateMinLength"))
     .max(20, t("validation.licensePlateMaxLength")),
   vehicleType: z.string().max(50, t("validation.vehicleTypeMaxLength")).optional(),
-  notes: z.string().max(500, t("validation.notesMaxLength")).optional(),
+  notes: sanitizedNotes(500, t("validation.notesMaxLength")).optional(),
 });
 
 export type Manifest = z.infer<typeof ManifestSchema>;

@@ -6,13 +6,16 @@
  * - Maintains request context for debugging
  * - Provides consistent error handling
  * - Tracks request timing and metadata
+ * - Attaches idempotency keys to mutating requests (POST/PUT)
  */
 
 import { generateCorrelationId } from "./correlationId";
+import { generateIdempotencyKey } from "./idempotency";
 
 export interface TracedRequestOptions extends RequestInit {
   correlationId?: string;
   timeout?: number;
+  idempotencyKey?: string;
 }
 
 export interface TracedResponse<T = unknown> extends Response {
@@ -25,6 +28,11 @@ export interface TracedResponse<T = unknown> extends Response {
     duration: number;
   };
 }
+
+/**
+ * HTTP methods that are non-idempotent and require an idempotency key.
+ */
+const MUTATING_METHODS = new Set(['POST', 'PUT']);
 
 /**
  * Traced HTTP client for frontend applications
@@ -114,7 +122,11 @@ export class TracedHttpClient {
   /**
    * Create headers with tracing information
    */
-  private createHeaders(options: TracedRequestOptions): Record<string, string> {
+  private createHeaders(
+    method: string,
+    options: TracedRequestOptions,
+    idempotencyKey?: string
+  ): Record<string, string> {
     const correlationId = this.getCorrelationId(options.correlationId);
     const requestId = this.generateRequestId();
 
@@ -129,6 +141,12 @@ export class TracedHttpClient {
     // cross-origin call, so we omit it unless a payload is present.
     if (options.body != null) {
       headers['Content-Type'] = 'application/json';
+    }
+
+    // Attach idempotency key for non-idempotent mutating requests so the
+    // backend can deduplicate retried operations (e.g. trade creation).
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
     }
 
     // Add custom headers from options
@@ -179,7 +197,14 @@ export class TracedHttpClient {
     options: TracedRequestOptions = {}
   ): Promise<TracedResponse<T>> {
     const startTime = performance.now();
-    const headers = this.createHeaders(options);
+
+    // Generate the idempotency key once per logical operation so that any
+    // automatic retries of the same request reuse the same key.
+    const idempotencyKey = MUTATING_METHODS.has(method.toUpperCase())
+      ? options.idempotencyKey || generateIdempotencyKey()
+      : undefined;
+
+    const headers = this.createHeaders(method, options, idempotencyKey);
     const correlationId = headers['X-Correlation-Id'];
     const requestId = headers['X-Request-Id'];
 
@@ -301,6 +326,13 @@ export class TracedHttpClient {
   }
 
   /**
+   * DELETE request
+   */
+  async delete<T = unknown>(url: string, options: TracedRequestOptions = {}): Promise<TracedResponse<T>> {
+    return this.request<T>('DELETE', url, options);
+  }
+
+  /**
    * PATCH request
    */
   async patch<T = unknown>(url: string, data?: unknown, options: TracedRequestOptions = {}): Promise<TracedResponse<T>> {
@@ -309,51 +341,9 @@ export class TracedHttpClient {
       body: data ? JSON.stringify(data) : undefined,
     });
   }
-
-  /**
-   * DELETE request
-   */
-  async delete<T = unknown>(url: string, options: TracedRequestOptions = {}): Promise<TracedResponse<T>> {
-    return this.request<T>('DELETE', url, options);
-  }
 }
 
 /**
  * Default traced HTTP client instance
  */
-export const tracedHttpClient = TracedHttpClient.getInstance();
-
-/**
- * Initialize the HTTP client with default settings
- */
-export function initializeHttpClient(baseURL: string = 'http://localhost:4000'): void {
-  tracedHttpClient.setBaseURL(baseURL);
-  
-  // Set user agent for better debugging
-  tracedHttpClient.setDefaultHeaders({
-    'User-Agent': `Amana-Frontend/${navigator.userAgent}`,
-    'X-Client-Version': '1.0.0',
-    'X-Client-Platform': navigator.platform,
-  });
-}
-
-/**
- * Utility to create a new correlation ID for a specific user flow
- */
-export function createCorrelationId(): string {
-  return generateCorrelationId();
-}
-
-/**
- * Utility to set correlation ID for the current session
- */
-export function setSessionCorrelationId(correlationId: string): void {
-  sessionStorage.setItem('amana-correlation-id', correlationId);
-}
-
-/**
- * Utility to get current session correlation ID
- */
-export function getSessionCorrelationId(): string | null {
-  return sessionStorage.getItem('amana-correlation-id');
-}
+export const tracedFetch = TracedHttpClient.getInstance();
