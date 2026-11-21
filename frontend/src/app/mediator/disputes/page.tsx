@@ -12,6 +12,7 @@ import { SkeletonList } from "@/components/ui/SkeletonList";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { getStatusBadgeClasses } from "@/components/ui/StatusBadge";
+import { EvidenceCountdown } from "@/components/mediator/EvidenceCountdown";
 import {
   getMediatorAddresses,
   isMediatorAddress,
@@ -250,6 +251,9 @@ export default function MediatorDisputesPage() {
                   </div>
                   <div className="text-sm text-text-secondary mt-1">
                     {translateCopy("ui.created_0c78dab")}{" "}{formatDate(dispute.createdAt)}
+                  </div>
+                  <div className="mt-2">
+                    <EvidenceCountdown createdAt={dispute.createdAt} />
                   </div>
                 </div>
               </div>

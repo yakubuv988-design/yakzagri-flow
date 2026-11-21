@@ -3,6 +3,7 @@ import { t as translateCopy } from "@/lib/i18n";
 
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Address,
   BASE_FEE,
@@ -138,6 +139,7 @@ export default function MediatorPanelClient({ disputeId }: Props) {
   const [cidCopyMessage, setCidCopyMessage] = useState("");
   const [outcome, setOutcome] = useState<ResolutionOutcome | null>(null);
   const [justification, setJustification] = useState("");
+  const [acknowledged, setAcknowledged] = useState(false);
   const [modal, setModal] = useState<ConfirmationModalState>({
     isOpen: false,
     sellerGetsBps: null,
@@ -159,6 +161,14 @@ export default function MediatorPanelClient({ disputeId }: Props) {
   }, []);
 
   const isMediator = Boolean(address && mediatorAddresses.includes(address));
+  const router = useRouter();
+
+  useEffect(() => {
+    // A connected wallet outside the mediator list is sent to access-denied (#397).
+    if (address && !isMediator) {
+      router.replace("/access-denied");
+    }
+  }, [address, isMediator, router]);
   const canResolve = isMediator && !isSubmittingTx;
   const explorerNetwork =
     process.env.NEXT_PUBLIC_STELLAR_NETWORK === "public" ? "public" : "testnet";
@@ -315,6 +325,8 @@ export default function MediatorPanelClient({ disputeId }: Props) {
   }
 
   function openConfirmationModal(sellerGetsBps: number, splitLabel: string) {
+    // Each review starts unacknowledged, so the signature stays locked until the mediator confirms (#395).
+    setAcknowledged(false);
     setModal({ isOpen: true, sellerGetsBps, splitLabel });
   }
 
@@ -346,6 +358,11 @@ export default function MediatorPanelClient({ disputeId }: Props) {
   }
 
   async function executeResolution(sellerGetsBps: number) {
+    // Enforced here as well as on the buttons, so no code path can sign a ruling without the mediator role (#397).
+    if (!isMediator) {
+      setTxStatus("Read Only - Authorized Mediators Only");
+      return;
+    }
     if (submittingRef.current) return;
     if (!address) {
       setTxStatus("Connect Freighter first.");
@@ -413,6 +430,7 @@ export default function MediatorPanelClient({ disputeId }: Props) {
         networkPassphrase,
       );
 
+      setTxStatus("Broadcasting ruling to Stellar network...");
       const sendResponse = await rpcServer.sendTransaction(signedTx);
       if (sendResponse.status === "ERROR") {
         throw new Error(
@@ -879,6 +897,16 @@ export default function MediatorPanelClient({ disputeId }: Props) {
                   </div>
                 )}
 
+                <label className="flex items-start gap-2 text-sm text-text-primary">
+                  <input
+                    type="checkbox"
+                    checked={acknowledged}
+                    onChange={(event) => setAcknowledged(event.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>I have reviewed the payouts above and understand this ruling cannot be undone.</span>
+                </label>
+
                 <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-3">
                   <ModalDescription className="text-xs text-yellow-800">
                     <span className="font-semibold">{translateCopy("ui.warning_3217f29")}</span>{" "}
@@ -903,7 +931,7 @@ export default function MediatorPanelClient({ disputeId }: Props) {
                     closeModal();
                     void executeResolution(bps);
                   }}
-                  disabled={isSubmittingTx || !isResolutionReady}
+                  disabled={isSubmittingTx || !isResolutionReady || !acknowledged}
                   className="px-3 sm:px-4 py-2.5 bg-emerald-700 text-white text-sm font-medium rounded-md hover:bg-emerald-800 disabled:opacity-50 transition"
                   aria-label={translateCopy("ui.confirm_and_sign_resolution_2d0dc86")}
                 >
