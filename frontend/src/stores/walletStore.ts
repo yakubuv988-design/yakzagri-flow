@@ -13,6 +13,40 @@ interface WalletState {
   reset: () => void;
 }
 
+const memoryStorage = new Map<string, string>();
+
+/**
+ * Storage for the wallet session: localStorage, then sessionStorage, then memory (#414).
+ * Hardened browsers can block or partition localStorage, so each tier is probed with a
+ * write before it is used. The memory tier keeps the store working, but the session
+ * is then lost on reload.
+ */
+function resolveWalletStorage(): Storage {
+  if (typeof window !== 'undefined') {
+    for (const pick of [() => window.localStorage, () => window.sessionStorage]) {
+      try {
+        const candidate = pick();
+        const probeKey = '__amana_storage_probe__';
+        candidate.setItem(probeKey, '1');
+        candidate.removeItem(probeKey);
+        return candidate;
+      } catch {
+        // Blocked or unavailable: try the next tier.
+      }
+    }
+  }
+
+  return {
+    getItem: (key: string) => memoryStorage.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      memoryStorage.set(key, value);
+    },
+    removeItem: (key: string) => {
+      memoryStorage.delete(key);
+    },
+  } as unknown as Storage;
+}
+
 export const useWalletStore = create<WalletState>()(
   persist(
     (set) => ({
@@ -57,7 +91,7 @@ export const useWalletStore = create<WalletState>()(
     }),
     {
       name: 'amana_wallet_store',
-      storage: createJSONStorage(() => (typeof window !== 'undefined' ? window.localStorage : (null as unknown as Storage))),
+      storage: createJSONStorage(resolveWalletStorage),
       partialize: (state) => ({
         publicKey: state.publicKey,
         network: state.network,

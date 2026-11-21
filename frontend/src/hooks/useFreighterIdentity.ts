@@ -40,6 +40,7 @@ let storeState = initialState;
 let hasInitialized = false;
 let initializationPromise: Promise<void> | null = null;
 let activeOperationId = 0;
+let accountWatchAttached = false;
 
 const listeners = new Set<() => void>();
 
@@ -125,12 +126,31 @@ async function runRefreshIdentity(): Promise<void> {
   }
 }
 
+// Freighter does not give this hook a reliable account-change event, so the active
+// account is re-read whenever the window regains focus. An account switch made in
+// the extension is picked up on return (#415).
+function attachAccountWatch(): void {
+  if (accountWatchAttached || typeof window === "undefined") {
+    return;
+  }
+  accountWatchAttached = true;
+
+  const onReturn = () => {
+    if (document.visibilityState === "visible") {
+      void runRefreshIdentity();
+    }
+  };
+  window.addEventListener("focus", onReturn);
+  document.addEventListener("visibilitychange", onReturn);
+}
+
 async function ensureInitialized(): Promise<void> {
   if (hasInitialized) {
     return;
   }
 
   hasInitialized = true;
+  attachAccountWatch();
 
   if (!initializationPromise) {
     initializationPromise = runRefreshIdentity().finally(() => {

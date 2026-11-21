@@ -37,3 +37,16 @@ export function formatUsdc(stroops: number | bigint | string): string {
 export function formatXlm(stroops: number | bigint | string): string {
   return `${stroopsToAmount(stroops, 7)} XLM`;
 }
+
+/**
+ * Format an XLM fee for display. Uses fixed 7-decimal precision so small values
+ * never render as exponential notation (e.g. `1e-5`), keeps at least 4 decimals,
+ * and trims trailing zeros beyond that (#417).
+ */
+export function formatFeeXlm(xlm: number): string {
+  if (!Number.isFinite(xlm)) return "0.0000";
+  const [whole, fraction] = xlm.toFixed(7).split(".");
+  let trimmed = fraction;
+  while (trimmed.length > 4 && trimmed.endsWith("0")) trimmed = trimmed.slice(0, -1);
+  return `${whole}.${trimmed}`;
+}

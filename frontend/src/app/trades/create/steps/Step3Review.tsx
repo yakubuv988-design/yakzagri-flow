@@ -17,6 +17,7 @@ import { shouldDedup, registerAction } from "@/lib/actionDedup";
 import { getOrCreateIdempotencyKey, clearIdempotencyKey } from "@/lib/idempotency";
 import { generateCorrelationId } from "@/lib/correlationId";
 import { formatNumber } from "@/lib/i18n/format";
+import { formatFeeXlm } from "@/lib/stellar/format";
 import { XdrCountdownBadge } from "@/components/trades/XdrCountdownBadge";
 
 export const SLIPPAGE_TOLERANCE_OPTIONS = [
@@ -41,9 +42,9 @@ export function estimateSorobanSimulation(rawAmount: number): SorobanSimulationB
   const resourceFeeStroops = validAmount > 0 ? 45_200 : 32_000;
   const totalStroops = baseFeeStroops + resourceFeeStroops;
   return {
-    baseFeeXlm: (baseFeeStroops / 1e7).toFixed(7),
-    resourceFeeXlm: (resourceFeeStroops / 1e7).toFixed(7),
-    totalEstimatedFeeXlm: (totalStroops / 1e7).toFixed(7),
+    baseFeeXlm: formatFeeXlm(baseFeeStroops / 1e7),
+    resourceFeeXlm: formatFeeXlm(resourceFeeStroops / 1e7),
+    totalEstimatedFeeXlm: formatFeeXlm(totalStroops / 1e7),
     cpuInstructions: validAmount > 0 ? "1,420,000" : "980,000",
     ledgerReads: 4,
     ledgerWrites: 2,

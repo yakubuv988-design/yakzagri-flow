@@ -97,6 +97,39 @@ export const STELLAR_ASSETS: Record<string, AssetInfo> = {
  */
 export const DEFAULT_ASSET: AssetInfo = STELLAR_ASSETS.XLM;
 
+/** Horizon base URLs by network, for account lookups (#416). */
+const HORIZON_BASE_URLS = {
+  public: "https://horizon.stellar.org",
+  testnet: "https://horizon-testnet.stellar.org",
+} as const;
+
+/**
+ * True when `accountId` has an established trustline for `asset`. Native XLM and
+ * assets without an issuer need none. A missing account has no trustlines.
+ * Throws on other Horizon errors, so callers can say "could not verify" rather
+ * than "missing trustline" (#416).
+ */
+export async function hasTrustline(
+  accountId: string,
+  asset: AssetInfo,
+  network: keyof typeof HORIZON_BASE_URLS,
+): Promise<boolean> {
+  if (asset.type === "native" || !asset.issuer) return true;
+
+  const response = await fetch(`${HORIZON_BASE_URLS[network]}/accounts/${encodeURIComponent(accountId)}`);
+  if (response.status === 404) return false;
+  if (!response.ok) {
+    throw new Error(`Trustline lookup failed (${response.status})`);
+  }
+
+  const account = (await response.json()) as {
+    balances: Array<{ asset_type: string; asset_code?: string; asset_issuer?: string }>;
+  };
+  return account.balances.some(
+    (balance) => balance.asset_code === asset.code && balance.asset_issuer === asset.issuer,
+  );
+}
+
 /**
  * Get asset info by code, with fallback to default.
  *
