@@ -255,4 +255,6 @@ export interface ReputationResponse {
   disputedTrades: number;
   successRate: number;
   history: ReputationEvent[];
+  /** Verified counterparty endorsements. Absent when the API does not report them (#408). */
+  endorsementCount?: number | null;
 }

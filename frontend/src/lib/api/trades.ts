@@ -1,4 +1,5 @@
 import { createQueryString, request, withIdempotency } from "./client";
+import { invalidateReputationCache } from "./reputation";
 import type {
   CreateTradeRequest,
   CreateTradeResponse,
@@ -70,12 +71,16 @@ export const tradesApi = {
       headers: withIdempotency(undefined, opts),
     }),
 
-  releaseFunds: (token: string, tradeId: string, opts?: { idempotencyKey?: string; correlationId?: string }) =>
-    request<{ unsignedXdr: string }>(`/trades/${tradeId}/release`, {
+  releaseFunds: async (token: string, tradeId: string, opts?: { idempotencyKey?: string; correlationId?: string }) => {
+    const result = await request<{ unsignedXdr: string }>(`/trades/${tradeId}/release`, {
       method: "POST",
       token,
       headers: withIdempotency(undefined, opts),
-    }),
+    });
+    // Clear reputation cache so the next read reflects the release (#407).
+    invalidateReputationCache();
+    return result;
+  },
 
   cancelTrade: (token: string, tradeId: string, opts?: { idempotencyKey?: string; correlationId?: string }) =>
     request<TradeResponse>(`/trades/${tradeId}/cancel`, {
