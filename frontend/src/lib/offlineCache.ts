@@ -321,3 +321,34 @@ export function purgeSensitiveStorage(): void {
 export function readCachedTradesList<T>(): CacheReadResult<T> {
   return cacheRead<T>("trades_list", "all");
 }
+
+// ─── Large blob quota check ─────────────────────────────────────────────────
+
+/** Blobs above this size (for example dispute videos) need a quota check first (#429). */
+export const LARGE_BLOB_BYTES = 10 * 1024 * 1024; // 10 MB
+
+export type BlobQuotaCheck =
+  | { ok: true }
+  | { ok: false; reason: "insufficient_quota"; availableBytes: number };
+
+/**
+ * Check whether a large blob fits in origin storage before writing it.
+ * Small blobs, and browsers without storage estimates, pass. When the check
+ * fails, callers should ask the user to compress the file or upload it
+ * directly rather than attempting the write.
+ */
+export async function checkBlobQuota(sizeBytes: number): Promise<BlobQuotaCheck> {
+  if (sizeBytes <= LARGE_BLOB_BYTES) return { ok: true };
+  if (typeof navigator === "undefined" || !navigator.storage?.estimate) return { ok: true };
+
+  try {
+    const { quota = 0, usage = 0 } = await navigator.storage.estimate();
+    const availableBytes = Math.max(0, quota - usage);
+    if (availableBytes < sizeBytes) {
+      return { ok: false, reason: "insufficient_quota", availableBytes };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: true };
+  }
+}

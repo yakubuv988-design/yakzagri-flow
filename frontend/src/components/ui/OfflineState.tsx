@@ -59,3 +59,33 @@ export function OfflineState({
     </div>
   );
 }
+
+export function formatCacheAge(cachedAt: number, now: number = Date.now()): string {
+  const minutes = Math.floor((now - cachedAt) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+/**
+ * Banner shown while a list is displayed from the local cache rather than
+ * fresh network data (#428). Render it only in that state; it disappears
+ * when the caller stops rendering it after a successful fetch.
+ */
+export function CachedDataNotice({ cachedAt, className }: { cachedAt: number; className?: string }) {
+  return (
+    <div
+      role="status"
+      className={clsx(
+        "flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning",
+        className,
+      )}
+    >
+      <span aria-hidden>●</span>
+      <span>Viewing cached data, cached {formatCacheAge(cachedAt)}</span>
+    </div>
+  );
+}

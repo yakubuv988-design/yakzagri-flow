@@ -11,6 +11,14 @@ export type QueuedActionType = "create-trade" | "deposit" | "release" | "dispute
 export const MAX_REPLAY_ATTEMPTS = 5;
 export const BASE_BACKOFF_MS = 50;
 
+/** Queued actions older than this are dropped instead of replayed (#426). */
+export const QUEUE_TTL_MS = 24 * 60 * 60 * 1000;
+
+export function isQueuedActionExpired(action: { createdAt: string }, now: number = Date.now()): boolean {
+  const createdAt = Date.parse(action.createdAt);
+  return Number.isFinite(createdAt) && now - createdAt > QUEUE_TTL_MS;
+}
+
 export function computeReplayBackoffMs(attempt: number, baseMs: number = BASE_BACKOFF_MS): number {
   const exp = Math.max(0, Math.min(attempt - 1, 6));
   return baseMs * Math.pow(2, exp);
@@ -57,7 +65,7 @@ interface OfflineQueueState {
   replay: (
     executor: (action: QueuedAction) => Promise<void>,
     options?: { maxAttempts?: number; baseBackoffMs?: number },
-  ) => Promise<{ succeeded: string[]; failed: string[]; dropped: string[] }>;
+  ) => Promise<{ succeeded: string[]; failed: string[]; dropped: string[]; expired: string[] }>;
 }
 
 export const useOfflineQueueStore = create<OfflineQueueState>()(
@@ -104,8 +112,15 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
         const succeeded: string[] = [];
         const failed: string[] = [];
         const dropped: string[] = [];
+        const expired: string[] = [];
 
         for (const action of [...queue]) {
+          if (isQueuedActionExpired(action)) {
+            set((s) => ({ queue: s.queue.filter((a) => a.id !== action.id) }));
+            expired.push(action.id);
+            continue;
+          }
+
           if (action.attempts >= maxAttempts) {
             set((s) => ({ queue: s.queue.filter((a) => a.id !== action.id) }));
             dropped.push(action.id);
@@ -152,7 +167,7 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
             }
           }
         }
-        return { succeeded, failed, dropped };
+        return { succeeded, failed, dropped, expired };
       },
     }),
     {

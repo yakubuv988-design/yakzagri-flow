@@ -66,6 +66,12 @@ function handleFetch(event) {
 
   const url = new URL(request.url);
 
+  // Commodity metadata rarely changes: serve the cached copy at once and refresh it in the background (#427).
+  if (url.pathname.startsWith("/api/v1/commodities")) {
+    event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
+
   // App data routes (API & trades): network-first with cache fallback for GET,
   // while non-GET mutations (POST, OPTIONS, etc.) bypass caching and succeed online.
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/trades/")) {

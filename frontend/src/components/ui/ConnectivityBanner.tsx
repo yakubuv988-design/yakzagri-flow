@@ -59,7 +59,14 @@ export function ConnectivityBanner() {
             "X-Correlation-Id": action.correlationId,
           },
         });
-      }).then(({ succeeded, failed }) => {
+      }).then(({ succeeded, failed, expired }) => {
+        if (expired.length > 0) {
+          addToast({
+            type: "warning",
+            title: "Expired actions dropped",
+            message: `${expired.length} queued action(s) older than 24 hours were not sent to protect funds.`,
+          });
+        }
         if (failed.length === 0) {
           addToast({ type: "success", title: "Synced", message: `${succeeded.length} queued action(s) completed.` });
         } else {
