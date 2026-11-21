@@ -181,6 +181,9 @@ function evictLRU(): void {
  * Write a value into the cache under domain + key.
  * Evicts expired entries first, then enforces quota by evicting LRU entries until enough space exists.
  */
+// Writes go to localStorage, which is synchronous, so two callers can never
+// interleave inside one write. No IndexedDB transactions are opened here, so
+// TransactionInactiveError cannot occur from this module (#423).
 export function cacheWrite<T>(
   domain: CacheDomain,
   key: string,

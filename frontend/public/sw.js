@@ -39,6 +39,16 @@ if (typeof swScope.addEventListener === "function") {
     }
   });
 
+  // Background Sync: ask open pages to flush the trade queue (#424).
+  swScope.addEventListener("sync", (event) => {
+    if (event.tag !== "sync-trade-queue") return;
+    event.waitUntil(
+      swScope.clients.matchAll({ type: "window" }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: "SYNC_TRADE_QUEUE" }));
+      })
+    );
+  });
+
   swScope.addEventListener("fetch", handleFetch);
 }
 

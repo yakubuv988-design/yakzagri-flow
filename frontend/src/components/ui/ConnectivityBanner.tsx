@@ -2,13 +2,14 @@
 import { t as translateCopy } from "@/lib/i18n";
 
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useOffline } from "@/hooks/useOffline";
-import { useOfflineQueueStore } from "@/stores/offlineQueueStore";
+import { useOfflineQueueStore, type QueuedAction } from "@/stores/offlineQueueStore";
 import { useToast } from "@/hooks/useToast";
 import { request } from "@/lib/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { submitTradeCreation } from "@/lib/trades/submitTradeCreation";
+import { SYNC_TRADE_QUEUE_EVENT } from "@/lib/register-sw";
 import type { CreateTradeRequest } from "@/lib/api";
 
 export function ConnectivityBanner() {
@@ -20,6 +21,55 @@ export function ConnectivityBanner() {
   const { token } = useAuth();
   const { addToast, addToastWithCorrelation } = useToast();
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  // Runs one queued action against the API. Shared by the reconnect replay,
+  // the manual Retry All button and background sync (#424, #425).
+  const executeQueuedAction = useCallback(async (action: QueuedAction) => {
+    if (action.type === "create-trade") {
+      if (!token) {
+        throw new Error("Authenticate your wallet before syncing this trade.");
+      }
+      await submitTradeCreation(token, action.body as CreateTradeRequest, {
+        idempotencyKey: action.idempotencyKey,
+        correlationId: action.correlationId,
+      });
+      return;
+    }
+
+    // Reuse same idempotency key — backend #3 honors key reuse → duplicate-send prevented
+    await request(action.endpoint, {
+      method: action.method,
+      body: action.body ? JSON.stringify(action.body) : undefined,
+      headers: {
+        "Idempotency-Key": action.idempotencyKey,
+        "X-Correlation-Id": action.correlationId,
+      },
+    });
+  }, [token]);
+
+  const retryAll = useCallback(async () => {
+    setRetrying(true);
+    try {
+      const { succeeded, failed } = await replay(executeQueuedAction);
+      if (failed.length === 0) {
+        addToast({ type: "success", title: "Synced", message: `${succeeded.length} queued action(s) completed.` });
+      } else {
+        addToast({ type: "warning", title: "Partial sync", message: `${succeeded.length} sent, ${failed.length} failed — will retry.` });
+      }
+    } finally {
+      setRetrying(false);
+    }
+  }, [replay, executeQueuedAction, addToast]);
+
+  // Background Sync or the online fallback asks an open page to flush the queue (#424).
+  useEffect(() => {
+    const onSyncRequest = () => {
+      if (!isOffline && queue.length > 0) void retryAll();
+    };
+    window.addEventListener(SYNC_TRADE_QUEUE_EVENT, onSyncRequest);
+    return () => window.removeEventListener(SYNC_TRADE_QUEUE_EVENT, onSyncRequest);
+  }, [isOffline, queue.length, retryAll]);
 
   // Sync online state to queue store
   useEffect(() => {
@@ -38,28 +88,7 @@ export function ConnectivityBanner() {
         duration: 0,
       });
 
-      void replay(async (action) => {
-        if (action.type === "create-trade") {
-          if (!token) {
-            throw new Error("Authenticate your wallet before syncing this trade.");
-          }
-          await submitTradeCreation(token, action.body as CreateTradeRequest, {
-            idempotencyKey: action.idempotencyKey,
-            correlationId: action.correlationId,
-          });
-          return;
-        }
-
-        // Reuse same idempotency key — backend #3 honors key reuse → duplicate-send prevented
-        await request(action.endpoint, {
-          method: action.method,
-          body: action.body ? JSON.stringify(action.body) : undefined,
-          headers: {
-            "Idempotency-Key": action.idempotencyKey,
-            "X-Correlation-Id": action.correlationId,
-          },
-        });
-      }).then(({ succeeded, failed }) => {
+      void replay(executeQueuedAction).then(({ succeeded, failed }) => {
         if (failed.length === 0) {
           addToast({ type: "success", title: "Synced", message: `${succeeded.length} queued action(s) completed.` });
         } else {
@@ -68,7 +97,7 @@ export function ConnectivityBanner() {
         void retryOnline();
       });
     }
-  }, [isOffline, wasOffline, queue.length, replay, retryOnline, addToast, addToastWithCorrelation, token]);
+  }, [isOffline, wasOffline, queue.length, replay, retryOnline, addToast, addToastWithCorrelation, executeQueuedAction]);
 
   // Accurate banner states during transition windows
   if (isOffline) {
@@ -106,6 +135,14 @@ export function ConnectivityBanner() {
               <h2 className="text-sm font-semibold text-text-primary">
                 Queued Offline Actions ({queue.length})
               </h2>
+              <button
+                type="button"
+                onClick={() => void retryAll()}
+                disabled={retrying}
+                className="ml-auto mr-3 text-xs font-medium text-gold hover:underline disabled:opacity-50"
+              >
+                {retrying ? "Retrying…" : "Retry All"}
+              </button>
               <button
                 type="button"
                 onClick={() => setInspectorOpen(false)}
