@@ -1,5 +1,39 @@
 import { apiConfig } from "../api";
 
+/** Public Horizon fee endpoints, keyed by the network this app runs on (#413). */
+const HORIZON_FEE_STATS_URL = {
+  public: "https://horizon.stellar.org/fee_stats",
+  testnet: "https://horizon-testnet.stellar.org/fee_stats",
+} as const;
+
+export interface FeeEstimate {
+  /** Most common inclusion fee charged recently, in stroops. */
+  modeStroops: number;
+  /** 90th percentile inclusion fee charged recently, in stroops. */
+  p90Stroops: number;
+}
+
+/** Fetch recent fee recommendations from Horizon /fee_stats (#413). */
+export async function fetchFeeEstimate(): Promise<FeeEstimate> {
+  const url = process.env.NEXT_PUBLIC_STELLAR_NETWORK === "public"
+    ? HORIZON_FEE_STATS_URL.public
+    : HORIZON_FEE_STATS_URL.testnet;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Fee stats request failed (${response.status})`);
+  }
+  const body = (await response.json()) as { fee_charged: { mode: string; p90: string } };
+  return {
+    modeStroops: Number(body.fee_charged.mode),
+    p90Stroops: Number(body.fee_charged.p90),
+  };
+}
+
+/** Format a stroop amount as XLM with seven decimals (1 XLM = 10,000,000 stroops). */
+export function stroopsToXlm(stroops: number): string {
+  return (stroops / 10_000_000).toFixed(7);
+}
+
 export interface BroadcastResponse {
   hash: string;
 }

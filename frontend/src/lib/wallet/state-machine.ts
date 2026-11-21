@@ -208,6 +208,14 @@ export const WALLET_CALL_TIMEOUT_MS = 8_000;
 
 export const WALLET_TIMEOUT = Symbol("wallet-timeout");
 
+/** Shown when the user dismisses a Freighter signature request (#411). */
+export const SIGNING_CANCELLED_MESSAGE = "Signature request cancelled by user";
+
+/** True when a Freighter error means the user declined or closed the signing popup (#411). */
+export function isSigningCancelled(error: { message?: string } | null | undefined): boolean {
+  return /user (declined|rejected|cancel)/i.test(error?.message ?? "");
+}
+
 export function withWalletTimeout<T>(
   promise: Promise<T>,
   ms: number = WALLET_CALL_TIMEOUT_MS,

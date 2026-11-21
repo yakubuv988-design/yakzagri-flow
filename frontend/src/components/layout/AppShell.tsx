@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AppTopNav } from "@/components/layout/AppTopNav";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { ConnectivityBanner } from "@/components/ui/ConnectivityBanner";
+import { NetworkMismatchBanner } from "@/components/wallet/NetworkMismatchBanner";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -11,6 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col h-screen">
       <ConnectivityBanner />
+      <NetworkMismatchBanner />
       <AppTopNav
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         isSidebarOpen={sidebarOpen}

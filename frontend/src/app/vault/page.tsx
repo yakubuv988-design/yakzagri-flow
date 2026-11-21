@@ -18,6 +18,7 @@ import { DriverManifestForm, LoadingState, type DriverManifestData } from "@/com
 import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/lib/i18n";
 import { useWallet } from "@/hooks/useWallet";
+import { BalanceDisplay } from "@/components/wallet/BalanceDisplay";
 import { formatDateTime, formatNumber } from "@/lib/i18n/format";
 import {
   api,
@@ -66,7 +67,7 @@ export default function VaultPage() {
     authenticate,
   } = useAuth();
 
-  const { balance, asset } = useWallet();
+  const { balance, asset, loading: balanceLoading, refetch: refetchBalance } = useWallet();
 
   const [stats, setStats] = useState<TradeStatsResponse | null>(null);
   const [recentTrades, setRecentTrades] = useState<TradeListResponse | null>(null);
@@ -266,9 +267,13 @@ export default function VaultPage() {
                 {shortAddress ?? "No connected wallet"}
               </p>
               {isAuthenticated && balance !== null && (
-                <p className="mt-1 text-xs text-text-muted">
-                  {translateCopy("ui.balance_802dc02")}{" "}<span className="font-medium text-text-secondary">{balance} {asset}</span>
-                </p>
+                <BalanceDisplay
+                  label={translateCopy("ui.balance_802dc02")}
+                  balance={balance}
+                  asset={asset}
+                  loading={balanceLoading}
+                  onRefresh={() => void refetchBalance()}
+                />
               )}
             </div>
 
