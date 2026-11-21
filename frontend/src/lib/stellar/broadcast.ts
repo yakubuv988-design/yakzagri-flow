@@ -1,36 +1,72 @@
 import { apiConfig } from "../api";
+import { trackFailure } from "@/lib/analytics";
 
 export interface BroadcastResponse {
   hash: string;
 }
 
 /**
+ * RPC endpoints to try in order: the configured one, then any listed in
+ * NEXT_PUBLIC_STELLAR_RPC_FALLBACK_URLS (comma separated) (#418).
+ */
+function rpcEndpoints(): string[] {
+  const primary = apiConfig.getStellarRpcUrl();
+  const fallbacks = (process.env.NEXT_PUBLIC_STELLAR_RPC_FALLBACK_URLS ?? "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter((url) => url && url !== primary);
+  return [primary, ...fallbacks];
+}
+
+/**
  * Broadcast a signed transaction XDR to the Stellar RPC via `sendTransaction`.
+ * A network error or a 5xx response moves on to the next endpoint, and each
+ * failover is reported to analytics (#418). A 4xx or an RPC error is final.
  */
 export async function broadcastTransaction(signedTxXdr: string): Promise<BroadcastResponse> {
-  const submitResponse = await fetch(apiConfig.getStellarRpcUrl(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "sendTransaction",
-      params: { transaction: signedTxXdr },
-    }),
-  });
+  const endpoints = rpcEndpoints();
 
-  const submitResult = await submitResponse.json().catch(() => null);
+  for (let index = 0; index < endpoints.length; index++) {
+    const hasNext = index < endpoints.length - 1;
 
-  if (!submitResponse.ok || submitResult?.error) {
-    const message =
-      submitResult?.error?.message ||
-      (typeof submitResult?.error === "string" ? submitResult.error : null) ||
-      `Transaction submission to Stellar failed with status ${submitResponse.status}`;
-    throw new Error(message);
+    let submitResponse: Response;
+    try {
+      submitResponse = await fetch(endpoints[index], {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "sendTransaction",
+          params: { transaction: signedTxXdr },
+        }),
+      });
+    } catch (error) {
+      if (!hasNext) throw error;
+      trackFailure("rpc_failover", { attempt: index + 1, of: endpoints.length, status: 0 });
+      continue;
+    }
+
+    if (submitResponse.status >= 500 && hasNext) {
+      trackFailure("rpc_failover", { attempt: index + 1, of: endpoints.length, status: submitResponse.status });
+      continue;
+    }
+
+    const submitResult = await submitResponse.json().catch(() => null);
+
+    if (!submitResponse.ok || submitResult?.error) {
+      const message =
+        submitResult?.error?.message ||
+        (typeof submitResult?.error === "string" ? submitResult.error : null) ||
+        `Transaction submission to Stellar failed with status ${submitResponse.status}`;
+      throw new Error(message);
+    }
+
+    const hash = submitResult?.result?.hash || submitResult?.result?.txHash || "";
+    return { hash };
   }
 
-  const hash = submitResult?.result?.hash || submitResult?.result?.txHash || "";
-  return { hash };
+  throw new Error("No Stellar RPC endpoint is configured");
 }
 
 export type PollTransactionStatus = "SUCCESS" | "FAILED" | "TIMEOUT";

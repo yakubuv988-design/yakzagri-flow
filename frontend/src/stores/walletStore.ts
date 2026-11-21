@@ -31,6 +31,9 @@ export const useWalletStore = create<WalletState>()(
         });
       },
 
+      // One synchronous set clears the key, balances and network, so the persisted copy
+      // is rewritten without them (#420). Nothing calls this yet, and the top nav reads
+      // useFreighterIdentity, which has no disconnect.
       disconnect: () => {
         set({
           publicKey: null,

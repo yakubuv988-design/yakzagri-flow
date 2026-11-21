@@ -37,3 +37,21 @@ export function formatUsdc(stroops: number | bigint | string): string {
 export function formatXlm(stroops: number | bigint | string): string {
   return `${stroopsToAmount(stroops, 7)} XLM`;
 }
+
+/**
+ * StellarExpert transaction URL for the active network. Testnet and public
+ * are separate paths on the explorer (#421).
+ */
+export function getExplorerTxUrl(txHash: string): string {
+  const network = process.env.NEXT_PUBLIC_STELLAR_NETWORK === "public" ? "public" : "testnet";
+  return `https://stellar.expert/explorer/${network}/tx/${encodeURIComponent(txHash)}`;
+}
+
+/** Anchor props for a StellarExpert link that opens safely in a new tab (#421). */
+export function explorerTxLinkProps(txHash: string) {
+  return {
+    href: getExplorerTxUrl(txHash),
+    target: "_blank",
+    rel: "noopener noreferrer",
+  } as const;
+}
