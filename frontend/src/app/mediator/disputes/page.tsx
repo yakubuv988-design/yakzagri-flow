@@ -62,6 +62,35 @@ const FILTERS: { label: string; value: DisputeStatus | "all" }[] = [
 
 const PAGE_SIZE = 10;
 
+/** Download a JSON summary of the disputes on screen (#401). */
+function exportDisputeBundle(items: DisputeResponse[]) {
+  const bundle = {
+    generatedAt: new Date().toISOString(),
+    disputes: items.map((dispute) => ({
+      disputeId: dispute.id,
+      tradeId: dispute.tradeId,
+      status: dispute.status,
+      reason: dispute.reason,
+      initiator: dispute.initiator,
+      createdAt: dispute.createdAt,
+      updatedAt: dispute.updatedAt,
+      resolvedAt: dispute.resolvedAt ?? null,
+      trade: dispute.trade,
+      // The dispute list does not include signatures, timelines, IPFS hashes or ruling details.
+      signatures: null,
+    })),
+  };
+
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `dispute-bundle-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function MediatorDisputesPage() {
   const { token, isAuthenticated } = useAuth();
   const { address } = useFreighterIdentity();
@@ -176,6 +205,13 @@ export default function MediatorDisputesPage() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-text-primary">{translateCopy("ui.mediator_disputes_b55890b")}</h1>
+        <Button
+          variant="secondary"
+          onClick={() => exportDisputeBundle(disputes)}
+          disabled={disputes.length === 0}
+        >
+          Export Dispute Bundle
+        </Button>
       </div>
 
       {/* Filters */}

@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic";
+import { MediatorScratchpad } from "@/components/mediator/MediatorScratchpad";
 
 const MediatorPanelClient = dynamic(() => import("./MediatorPanelClient"), {
   ssr: false,
@@ -19,5 +20,10 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <MediatorPanelClient disputeId={id} />;
+  return (
+    <>
+      <MediatorPanelClient disputeId={id} />
+      <MediatorScratchpad disputeId={id} />
+    </>
+  );
 }

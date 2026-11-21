@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/Modal";
 import { api, ApiError, type EvidenceRecord } from "@/lib/api";
 import { IPFS_GATEWAYS, buildIpfsGatewayUrl } from "@/lib/links";
+import { trackFailure } from "@/lib/analytics";
 
 type Props = { disputeId: string };
 
@@ -277,11 +278,18 @@ export default function MediatorPanelClient({ disputeId }: Props) {
   }, [resolvedCid]);
 
   function handleVideoError() {
+    // Report each failed gateway so outages show up in the error reporter (#400).
+    trackFailure("ipfs_gateway_failed", {
+      gateway: IPFS_GATEWAYS[activeGatewayIndex],
+      attempt: activeGatewayIndex + 1,
+    });
+
     const nextIndex = activeGatewayIndex + 1;
     if (nextIndex < IPFS_GATEWAYS.length) {
       setActiveGatewayIndex(nextIndex);
       setVideoLoadState("loading");
     } else {
+      trackFailure("ipfs_all_gateways_failed", { gateways: IPFS_GATEWAYS.length });
       setVideoLoadState("terminal-failure");
     }
   }
