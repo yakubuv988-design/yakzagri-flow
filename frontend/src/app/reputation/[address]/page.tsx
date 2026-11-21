@@ -40,19 +40,48 @@ export default function UserReputationPage() {
           {error}
         </p>
       ) : data ? (
-        <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {[
-            [translateCopy("ui.trust_score_2c7902e"), `${data.trustScore}%`],
-            [translateCopy("ui.rep_total_trades"), data.totalTrades],
-            [translateCopy("ui.completed"), data.completedTrades],
-            [translateCopy("ui.disputed"), data.disputedTrades],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-border-default bg-bg-card p-4">
-              <dt className="text-xs text-text-muted">{label}</dt>
-              <dd className="mt-2 text-xl font-semibold text-text-primary">{value}</dd>
+        <>
+          {data.cooperative ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border-default bg-bg-card p-4 text-sm">
+              <span className="font-medium text-text-primary">{data.cooperative.name}</span>
+              {data.cooperative.verified ? (
+                <span
+                  role="img"
+                  aria-label="Verified cooperative"
+                  title={`Verified by ${data.cooperative.verificationSource ?? "the cooperative registry"}${
+                    data.cooperative.accreditedOn ? `, accredited ${data.cooperative.accreditedOn}` : ""
+                  }`}
+                  className="text-emerald"
+                >
+                  ✓
+                </span>
+              ) : (
+                <span className="text-text-muted">Unverified</span>
+              )}
+              {data.cooperative.registrationId ? (
+                <span className="font-mono text-xs text-text-muted">{data.cooperative.registrationId}</span>
+              ) : null}
             </div>
-          ))}
-        </dl>
+          ) : null}
+          {data.totalTrades === 0 ? (
+            <p className="text-sm text-text-secondary">
+              New participant: no trade history yet. Completed trades will build a trust score.
+            </p>
+          ) : null}
+          <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[
+              [translateCopy("ui.trust_score_2c7902e"), `${data.trustScore}%`],
+              [translateCopy("ui.rep_total_trades"), data.totalTrades],
+              [translateCopy("ui.completed"), data.completedTrades],
+              [translateCopy("ui.disputed"), data.disputedTrades],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-border-default bg-bg-card p-4">
+                <dt className="text-xs text-text-muted">{label}</dt>
+                <dd className="mt-2 text-xl font-semibold text-text-primary">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
       ) : (
         <p role="status" className="text-sm text-text-secondary">{translateCopy("ui.reputation_loading")}</p>
       )}

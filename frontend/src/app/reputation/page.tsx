@@ -2,10 +2,12 @@
 import { t as translateCopy } from "@/lib/i18n";
 
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { api, ApiError, type ReputationResponse } from "@/lib/api";
 import { RepScoreRing } from "@/components/ui/RepScoreRing";
+import { ReputationRadar } from "@/components/ui/ReputationRadar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle, RefreshCw, TrendingUp, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
@@ -104,6 +106,14 @@ export default function ReputationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [trendWindow, setTrendWindow] = useState<"all" | "7d" | "30d" | "90d">("all");
+  const [searchAddress, setSearchAddress] = useState("");
+  const router = useRouter();
+
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const address = searchAddress.trim();
+    if (address) router.push(`/reputation/${encodeURIComponent(address)}`);
+  }
 
   const fetchReputation = useCallback(async () => {
     if (!token) return;
@@ -249,6 +259,22 @@ export default function ReputationPage() {
         <p className="text-text-secondary">
           {translateCopy("ui.your_trading_reputation_and_trus_302c8e8")}
         </p>
+        <form onSubmit={handleSearch} role="search" className="mt-4 flex gap-2 max-w-md">
+          <label htmlFor="reputation-address-search" className="sr-only">
+            Look up a farmer by Stellar address
+          </label>
+          <input
+            id="reputation-address-search"
+            type="text"
+            value={searchAddress}
+            onChange={(event) => setSearchAddress(event.target.value)}
+            placeholder="Stellar address (G...)"
+            className="flex-1 rounded-md border border-border-default bg-surface-1 px-3 py-2 text-sm text-text-primary"
+          />
+          <Button type="submit" variant="secondary">
+            View profile
+          </Button>
+        </form>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -281,6 +307,15 @@ export default function ReputationPage() {
         data-testid="reputation-score-factors"
       >
         <h2 className="text-lg font-semibold text-text-primary mb-4">Score Breakdown Factors</h2>
+        <div className="mb-6">
+          <ReputationRadar
+            axes={scoreFactors.map((factor) => ({
+              label: factor.label,
+              score: factor.score,
+              description: `weight ${factor.weight}`,
+            }))}
+          />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {scoreFactors.map((factor) => (
             <div

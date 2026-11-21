@@ -248,6 +248,14 @@ export interface ReputationEvent {
     | "account_created";
 }
 
+export interface CooperativeAffiliation {
+  name: string;
+  registrationId?: string;
+  verified: boolean;
+  verificationSource?: string;
+  accreditedOn?: string;
+}
+
 export interface ReputationResponse {
   trustScore: number;
   totalTrades: number;
@@ -255,4 +263,6 @@ export interface ReputationResponse {
   disputedTrades: number;
   successRate: number;
   history: ReputationEvent[];
+  /** Absent or null for independent producers (#403). */
+  cooperative?: CooperativeAffiliation | null;
 }
