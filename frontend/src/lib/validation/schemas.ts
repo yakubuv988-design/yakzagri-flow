@@ -138,3 +138,23 @@ export type ApiError = z.infer<typeof ApiErrorSchema>;
 
 export const EmptyResponseSchema = z.union([z.null(), z.undefined(), z.object({}).passthrough()]);
 export type EmptyResponse = z.infer<typeof EmptyResponseSchema>;
+
+/** Minimum lead time (seconds) between "now" and a stream's start time. */
+export const MIN_STREAM_START_LEAD_SECONDS = 60;
+
+/**
+ * Stream start time (unix seconds) must be at least 60s in the future,
+ * otherwise the Soroban contract call underflows.
+ * `now` is injectable (unix seconds) for deterministic tests.
+ */
+export const createStreamStartTimeSchema = (
+  now: () => number = () => Math.floor(Date.now() / 1000),
+) =>
+  z
+    .number({ message: "Start time is required" })
+    .int("Start time must be a whole number of seconds")
+    .refine((startTime) => startTime >= now() + MIN_STREAM_START_LEAD_SECONDS, {
+      message: "Start time must be at least 60 seconds in the future",
+    });
+
+export const StreamStartTimeSchema = createStreamStartTimeSchema();

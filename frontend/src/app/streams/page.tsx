@@ -68,6 +68,8 @@ export default function StreamsPage() {
           </div>
         </div>
 
+        <StreamSolvencyForm />
+
         {/* Coming soon placeholder */}
         {!canAccessAdmin ? (
           <>

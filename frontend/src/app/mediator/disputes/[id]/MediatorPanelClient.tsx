@@ -148,6 +148,13 @@ export default function MediatorPanelClient({ disputeId }: Props) {
   });
 
   const submittingRef = useRef(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
+
+  function changePlaybackRate(rate: number) {
+    setPlaybackRate(rate);
+    if (videoRef.current) videoRef.current.playbackRate = rate;
+  }
 
   const [execString, setExecString] = useState<string>("");
   const [resolutionError, setResolutionError] = useState<string | null>(null);
@@ -549,16 +556,45 @@ export default function MediatorPanelClient({ disputeId }: Props) {
                 )}
                 <video
                   key={pinataUrl}
+                  ref={videoRef}
                   controls
                   className="w-full h-full object-contain bg-black"
                   src={pinataUrl}
                   onLoadStart={() => setVideoLoadState("loading")}
-                  onCanPlay={() => setVideoLoadState("ready")}
+                  onCanPlay={() => {
+                    setVideoLoadState("ready");
+                    if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+                  }}
                   onError={handleVideoError}
                 />
               </>
             )}
           </div>
+
+          {pinataUrl && videoLoadState !== "terminal-failure" && (
+            <div
+              role="group"
+              aria-label="Video playback speed"
+              className="mt-3 flex items-center gap-2"
+            >
+              {[0.5, 1, 1.5, 2].map((rate) => (
+                <button
+                  key={rate}
+                  type="button"
+                  onClick={() => changePlaybackRate(rate)}
+                  aria-pressed={playbackRate === rate}
+                  aria-label={`Set playback speed to ${rate}x`}
+                  className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                    playbackRate === rate
+                      ? "border-gold bg-gold/10 text-gold font-semibold"
+                      : "border-border-default text-text-secondary hover:bg-bg-elevated"
+                  }`}
+                >
+                  {rate}x
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Video meta */}
           <div className="mt-3 text-sm text-text-secondary space-y-2">
